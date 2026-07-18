@@ -277,8 +277,12 @@ write(join(APP, 'splash-icon.png'), splashMark(), 512);
 // Store assets
 write(join(STORE, 'icon.png'), iconFullSvg, 512);
 write(join(STORE, 'featureGraphic.png'), featureGraphic(), 1024);
-write(join(STORE, 'phoneScreenshots', '1.png'), shotAdd());
-write(join(STORE, 'phoneScreenshots', '2.png'), shotSearch());
-write(join(STORE, 'phoneScreenshots', '3.png'), shotHome());
+// One set of designs, rendered at phone + tablet resolutions. Google needs only one phone set
+// (2–8 images, 320–3840px, ratio <=2:1); tablet sets are optional but remove the "not optimized
+// for large screens" note. All widths below stay within Play's limits.
+const shots = [shotAdd(), shotSearch(), shotHome()];
+shots.forEach((s, i) => write(join(STORE, 'phoneScreenshots', `${i + 1}.png`), s)); // 1080x1920
+shots.forEach((s, i) => write(join(STORE, 'sevenInchScreenshots', `${i + 1}.png`), s, 1206)); // 7"
+shots.forEach((s, i) => write(join(STORE, 'tenInchScreenshots', `${i + 1}.png`), s, 1600)); // 10"
 
 console.log('\nDone. Review the PNGs, then commit them (the app icon + store graphics).');
