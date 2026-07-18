@@ -1,0 +1,45 @@
+name: Push Store Listing (fastlane supply)
+
+# Pushes the Play Store listing text (title, descriptions, release notes) — and any graphics you
+# add under fastlane/metadata/android/en-US/images — to Google Play via the Play Developer API.
+# Run this from the Actions tab whenever you change the listing. It does NOT upload a binary.
+#
+# Note: the first-time legal declarations (content rating, data safety, target audience) are
+# console-only attestations and are not managed here.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'fastlane/metadata/**'
+
+jobs:
+  supply:
+    name: Upload metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+
+      - name: Write Google Play service account key
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY" > google-service-account.json
+
+      - name: Push metadata
+        env:
+          SUPPLY_JSON_KEY: google-service-account.json
+        run: fastlane android metadata
+
+      - name: Clean up service account key
+        if: always()
+        run: rm -f google-service-account.json

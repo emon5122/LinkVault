@@ -33,6 +33,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# CI / release secrets — never commit these
+google-service-account.json
+*.keystore
+fastlane/report.xml
+fastlane/Preview.html
+
 # typescript
 *.tsbuildinfo
 

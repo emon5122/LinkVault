@@ -1,0 +1,42 @@
+LinkVault is a fast, private, offline-first place to save every link that matters — and actually find it again.
+
+Save an article, video, tool, or recipe in a tap. LinkVault automatically pulls in the page title, description, preview image, and site icon so your library looks clean without any manual work. Everything is stored locally on your device: no account, no sign-up, no servers, no ads.
+
+SAVE FROM ANYWHERE
+• Paste a URL, or share a link from your browser or any app
+• Automatic preview: title, description, image, and favicon from the page
+• Duplicate detection warns you before saving the same link twice
+• "Save copied link?" prompt when you copy a URL
+
+ORGANIZE YOUR WAY
+• Folders with custom icons and colors
+• Multiple tags per link
+• Favorites, Read Later, and Pinned collections
+• Archive links you're done with — restore or delete anytime
+• Markdown notes with a live preview
+
+FIND ANYTHING INSTANTLY
+• Instant search across titles, URLs, descriptions, notes, folders, tags, and sites
+• Highlighted matches so you spot the right link fast
+• Sort by newest, oldest, title, or most visited
+• List or grid view
+
+READ LATER, YOUR WAY
+• A dedicated Read Later queue
+• Optional daily and weekly reminders
+• Open links in the built-in browser or your default browser
+
+IMPORT & EXPORT — YOUR DATA IS YOURS
+• Import from CSV, JSON, or browser bookmark (HTML) files
+• Export to CSV, JSON, or Markdown
+• Full local backup and restore
+
+BEAUTIFUL & FAST
+• Clean, minimal design with light, dark, and system themes
+• Smooth animations, swipe actions, and haptics
+• Built for speed, even with thousands of links
+
+PRIVATE BY DESIGN
+LinkVault keeps everything on your device. There are no accounts, no tracking, and no analytics. Page metadata is fetched directly from the sites you save. Your bookmarks are yours.
+
+Save everything. Find anything.

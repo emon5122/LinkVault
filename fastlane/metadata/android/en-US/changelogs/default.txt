@@ -1,0 +1,7 @@
+First release of LinkVault.
+
+• Save links with automatic previews (title, description, image, favicon)
+• Organize with folders, tags, favorites, read later, and pins
+• Instant search with highlighted results
+• Markdown notes, import/export, and full local backup
+• Light, dark, and system themes — private and fully offline

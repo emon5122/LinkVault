@@ -1,0 +1,79 @@
+name: Release (Android → Google Play)
+
+# Builds a production Android App Bundle on EAS and submits it to Google Play.
+#
+# Trigger options:
+#   • Push a version tag:      git tag v1.0.0 && git push origin v1.0.0   → builds + submits to PRODUCTION
+#   • Manual run (Actions tab): choose the "internal" profile to push to the Internal testing track instead.
+#
+# Required repository secrets:
+#   EXPO_TOKEN                    – expo.dev access token (Account → Access Tokens)
+#   GOOGLE_SERVICE_ACCOUNT_KEY   – contents of the Google Play service-account JSON
+#
+# One-time credential provisioning (see DEPLOYMENT.md): run `eas build -p android --profile production`
+# once locally (or `eas credentials`) so EAS generates & stores the Android upload keystore. CI then
+# reuses those EAS-managed credentials with no keys in the repo.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'EAS build/submit profile (track)'
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - preview
+
+jobs:
+  build-and-submit:
+    name: EAS build + submit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Write Google Play service account key
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY" > google-service-account.json
+
+      - name: Resolve profile
+        id: profile
+        run: echo "name=${{ github.event.inputs.profile || 'production' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build (EAS) and auto-submit to Google Play
+        run: |
+          eas build \
+            --platform android \
+            --profile "${{ steps.profile.outputs.name }}" \
+            --non-interactive \
+            --auto-submit-with-profile "${{ steps.profile.outputs.name }}"
+
+      - name: Clean up service account key
+        if: always()
+        run: rm -f google-service-account.json
