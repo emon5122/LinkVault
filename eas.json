@@ -28,19 +28,25 @@
     }
   },
   "submit": {
-    "preview": {
+    "internal": {
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
         "track": "internal",
-        "releaseStatus": "draft"
+        "releaseStatus": "completed"
+      }
+    },
+    "closed": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "alpha",
+        "releaseStatus": "completed"
       }
     },
     "production": {
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
         "track": "production",
-        "releaseStatus": "completed",
-        "changesNotSentForReview": false
+        "releaseStatus": "completed"
       }
     }
   }

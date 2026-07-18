@@ -16,13 +16,34 @@ manual work**.
 
 These are identity, payment, and legal-attestation gates. No automation or bot can complete them.
 
-### 1. Google Play Developer account
-1. Register at <https://play.google.com/console> and pay the **$25 one-time** fee.
-2. Complete **identity verification** (government ID; a **D-U-N-S number** if registering as an
-   **Organization**) and accept the **Developer Distribution Agreement**.
-3. **Choose "Organization" if possible.** Personal accounts registered recently must run a **closed
-   test with ≥12 testers for 14 continuous days** before the Production track unlocks. Organization
-   accounts are exempt.
+### 1. Google Play Developer account  (you already have a **personal** account)
+1. Make sure the account is fully **identity-verified** (government photo ID, address, phone) and that
+   the **Developer Distribution Agreement** is accepted. Play Console will block publishing until so.
+2. **Check your account creation date — it decides whether you face the closed-testing gate:**
+   - Created **before Nov 13, 2023** → exempt. You can publish straight to **production**.
+   - Created **on/after Nov 13, 2023** → you must complete the **closed-testing requirement** below
+     before the Production track unlocks.
+
+### 1b. The closed-testing gate (personal accounts created after Nov 13, 2023)
+Google requires, before you can "Apply for production access":
+- **At least 12 testers** who have **opted in** to a **Closed testing** track (Internal testing does
+  **not** count), and
+- the test running **≥ 14 continuous days**.
+
+> The Play Console shows the exact current number required (it has been as high as 20; 12 at the time
+> of writing). Whatever it shows is authoritative.
+
+**Lining up 12 real testers (legitimately):**
+- Create a **Google Group** (e.g. `linkvault-testers@googlegroups.com`) and add it as the tester list
+  on the Closed testing track — then anyone you invite just joins the group.
+- Recruit 12+ people with Google accounts: friends, family, colleagues, a Discord/community. They must
+  each accept the opt-in link and install the app from the Play closed-testing link.
+- Keep them opted in for the full 14 days, then **Apply for production access** in the console.
+- Do **not** use fake/bot testers — Google checks for genuine opted-in testers and can reject the
+  application.
+
+This 14-day window is the one unavoidable calendar delay for a new personal account. Everything else
+below is automated.
 
 ### 2. Create the app (once)
 In Play Console → **Create app**: name `LinkVault`, default language English, App, Free. Accept the
@@ -82,18 +103,29 @@ Before any production release can go live, complete **App content**:
 Runs on every push/PR: `typecheck`, `lint`, `test`.
 
 ### Release — `.github/workflows/release.yml`
-Builds a production AAB on EAS and submits it to Google Play.
+Builds a production AAB on EAS and submits it to a Google Play **track**. Three tracks are wired in
+`eas.json` (`submit.*`):
 
+| Track profile | Play track       | Use it for |
+| ------------- | ---------------- | ---------- |
+| `closed`      | Closed testing (`alpha`) | The mandatory 12-tester / 14-day gate (personal accounts) |
+| `internal`    | Internal testing | Quick smoke test (up to 100 testers, no review) |
+| `production`  | Production       | Public release |
+
+**During the closed-testing gate** (personal account bootstrap):
+Actions tab → **Release** → *Run workflow* → track = **`closed`**. Testers on your closed track get
+each build automatically. Repeat as needed during the 14 days.
+
+**After the gate is cleared** (or if your account is pre-Nov-2023 exempt):
 ```bash
-# Cut a release: bump the app version in app.json if needed, then tag.
+# Cut a release: bump the version in app.json if needed, then tag.
 git tag v1.0.0
-git push origin v1.0.0
+git push origin v1.0.0        # → builds + auto-submits to PRODUCTION
 ```
-The workflow builds and **auto-submits to the Production track**. Version codes auto-increment
-(`autoIncrement` + `appVersionSource: remote` in `eas.json`).
+Version codes auto-increment (`autoIncrement` + `appVersionSource: remote`).
 
-To push to **Internal testing** instead (recommended for the very first upload, and required if you
-must run the 12-tester closed test): Actions tab → **Release** → *Run workflow* → profile = `preview`.
+> One-time in Play Console: create the **Closed testing** track (the default is named *Alpha*, which
+> maps to `track: "alpha"` in `eas.json`) and attach your tester Google Group.
 
 ### Store listing — `.github/workflows/store-metadata.yml`
 Pushes `fastlane/metadata/android/en-US/*` (title, descriptions, release notes, and any graphics) to
@@ -104,16 +136,20 @@ Publishes `pages/` to GitHub Pages whenever it changes.
 
 ---
 
-## Recommended first-run order
+## Recommended first-run order (personal account)
 
-1. Part A steps 1–8.
-2. Push to `main` → CI goes green; Pages publishes the policy.
-3. Actions → **Release** → *Run workflow* with profile `preview` → lands in **Internal testing**.
-4. Test the internal build; complete any required closed testing (personal accounts).
-5. Run **Store listing** workflow (or it runs on metadata changes) to fill the listing text.
-6. Tag `v1.0.0` → production build + submit → Google review (1–7 days) → **live**.
+1. Part A steps 1–8, including creating the **Closed testing** track + a tester **Google Group**.
+2. Push to `main` → CI goes green; Pages publishes the privacy policy.
+3. Actions → **Release** → *Run workflow* → track **`closed`**. → build lands in Closed testing.
+4. Invite **≥12 testers** to the Google Group; have them opt in and install. **Wait 14 days.**
+5. Meanwhile, run the **Store listing** workflow (fills title/descriptions) and add the required
+   graphics under `fastlane/metadata/android/en-US/images/`; complete the App content attestations.
+6. After 14 days with 12+ testers → Play Console → **Apply for production access**.
+7. Once granted, tag `v1.0.0` → production build + submit → Google review (1–7 days) → **live**.
 
 After that, shipping an update is just: `git tag vX.Y.Z && git push --tags`.
+
+> If your account is **pre-Nov-2023 exempt**, skip steps 3–6 and go straight to step 7.
 
 ---
 

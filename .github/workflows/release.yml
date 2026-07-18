@@ -1,10 +1,18 @@
 name: Release (Android → Google Play)
 
-# Builds a production Android App Bundle on EAS and submits it to Google Play.
+# Builds a production Android App Bundle on EAS and submits it to a Google Play track.
 #
-# Trigger options:
-#   • Push a version tag:      git tag v1.0.0 && git push origin v1.0.0   → builds + submits to PRODUCTION
-#   • Manual run (Actions tab): choose the "internal" profile to push to the Internal testing track instead.
+# GitHub Actions is only the orchestrator — EAS Build compiles + signs the .aab in the cloud, and
+# EAS Submit uploads it to Google Play. The runner never does a native build.
+#
+# Personal Google Play accounts (created after ~Nov 2023) must run a CLOSED test with >=12 testers
+# for 14 continuous days before the Production track unlocks. So:
+#   • Bootstrap phase → run this manually with track = "closed"  (Actions tab → Run workflow)
+#   • After the gate is cleared → push a tag  →  goes straight to PRODUCTION
+#
+# Triggers:
+#   • git tag v1.0.0 && git push origin v1.0.0   → builds + submits to PRODUCTION
+#   • Actions → Run workflow → pick track         → closed / internal / production
 #
 # Required repository secrets:
 #   EXPO_TOKEN                    – expo.dev access token (Account → Access Tokens)
@@ -19,14 +27,15 @@ on:
     tags: ['v*']
   workflow_dispatch:
     inputs:
-      profile:
-        description: 'EAS build/submit profile (track)'
+      track:
+        description: 'Google Play track to submit to'
         required: true
-        default: production
+        default: closed
         type: choice
         options:
+          - closed
+          - internal
           - production
-          - preview
 
 jobs:
   build-and-submit:
@@ -62,17 +71,18 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
         run: printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY" > google-service-account.json
 
-      - name: Resolve profile
-        id: profile
-        run: echo "name=${{ github.event.inputs.profile || 'production' }}" >> "$GITHUB_OUTPUT"
+      - name: Resolve target track
+        id: track
+        # A pushed tag is a real release → production. A manual run uses the chosen track.
+        run: echo "name=${{ github.event.inputs.track || 'production' }}" >> "$GITHUB_OUTPUT"
 
       - name: Build (EAS) and auto-submit to Google Play
         run: |
           eas build \
             --platform android \
-            --profile "${{ steps.profile.outputs.name }}" \
+            --profile production \
             --non-interactive \
-            --auto-submit-with-profile "${{ steps.profile.outputs.name }}"
+            --auto-submit-with-profile "${{ steps.track.outputs.name }}"
 
       - name: Clean up service account key
         if: always()
