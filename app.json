@@ -2,6 +2,7 @@
   "expo": {
     "name": "LinkVault",
     "slug": "LinkVault",
+    "owner": "emon5122",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -79,6 +80,29 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ShareExtension",
+                  "bundleIdentifier": "com.emon5122.linkvault.share-extension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.emon5122.linkvault"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "e3d716a5-0463-49a7-aba8-715263c61451"
+      }
     }
   }
 }
