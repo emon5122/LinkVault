@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Archive, Clock, Inbox, Pin, Plus, Star, Tag as TagIcon } from 'lucide-react-native';
 import { ScrollView, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { FolderTile } from '@/components/folders';
 import {
@@ -14,6 +15,7 @@ import {
   Text,
 } from '@/components/ui';
 import { useFoldersWithCounts, useLibraryStats, useTagsWithCounts } from '@/hooks';
+import { riseIn } from '@/utils/motion';
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -38,7 +40,7 @@ export default function LibraryScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Collections */}
-        <View className="px-4">
+        <Animated.View entering={riseIn(0)} className="px-4">
           <ListGroup>
             <ListRow
               icon={Inbox}
@@ -55,7 +57,7 @@ export default function LibraryScreen() {
             />
             <ListRow
               icon={Clock}
-              iconColor="#2563eb"
+              iconColor="#6366f1"
               title="Read Later"
               value={s ? String(s.readLater) : undefined}
               onPress={() => router.push('/read-later')}
@@ -74,10 +76,10 @@ export default function LibraryScreen() {
               onPress={() => router.push('/archive')}
             />
           </ListGroup>
-        </View>
+        </Animated.View>
 
         {/* Folders */}
-        <View className="mt-6">
+        <Animated.View entering={riseIn(1)} className="mt-6">
           <SectionHeader
             title="Folders"
             actionLabel="New"
@@ -104,10 +106,10 @@ export default function LibraryScreen() {
               No folders yet. Create one to organize your links.
             </Text>
           )}
-        </View>
+        </Animated.View>
 
         {/* Tags */}
-        <View className="mt-6">
+        <Animated.View entering={riseIn(2)} className="mt-6">
           <SectionHeader
             title="Tags"
             actionLabel="Manage"
@@ -132,7 +134,7 @@ export default function LibraryScreen() {
               No tags yet. Add tags when you save a link.
             </Text>
           )}
-        </View>
+        </Animated.View>
       </ScrollView>
     </Screen>
   );

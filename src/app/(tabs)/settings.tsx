@@ -20,6 +20,7 @@ import {
 } from 'lucide-react-native';
 import { useRef } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import {
   ActionSheet,
@@ -42,6 +43,7 @@ import {
   type ViewMode,
 } from '@/store';
 import { haptics } from '@/utils/haptics';
+import { riseIn } from '@/utils/motion';
 
 export default function SettingsScreen() {
   const invalidate = useInvalidateLibrary();
@@ -162,7 +164,7 @@ export default function SettingsScreen() {
       <Header title="Settings" large />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 22, paddingBottom: 48 }}>
         {/* Appearance */}
-        <View className="gap-3">
+        <Animated.View entering={riseIn(0)} className="gap-3">
           <Text variant="label" className="px-1">
             Appearance
           </Text>
@@ -193,10 +195,10 @@ export default function SettingsScreen() {
               ]}
             />
           </View>
-        </View>
+        </Animated.View>
 
         {/* Behavior */}
-        <View className="gap-3">
+        <Animated.View entering={riseIn(1)} className="gap-3">
           <Text variant="label" className="px-1">
             Behavior
           </Text>
@@ -240,10 +242,10 @@ export default function SettingsScreen() {
               }
             />
           </ListGroup>
-        </View>
+        </Animated.View>
 
         {/* Reminders */}
-        <View className="gap-3">
+        <Animated.View entering={riseIn(2)} className="gap-3">
           <Text variant="label" className="px-1">
             Reminders
           </Text>
@@ -273,10 +275,10 @@ export default function SettingsScreen() {
               }
             />
           </ListGroup>
-        </View>
+        </Animated.View>
 
         {/* Data */}
-        <View className="gap-3">
+        <Animated.View entering={riseIn(3)} className="gap-3">
           <Text variant="label" className="px-1">
             Data
           </Text>
@@ -306,10 +308,10 @@ export default function SettingsScreen() {
               onPress={runRestore}
             />
           </ListGroup>
-        </View>
+        </Animated.View>
 
         {/* About */}
-        <View className="gap-3">
+        <Animated.View entering={riseIn(4)} className="gap-3">
           <Text variant="label" className="px-1">
             About
           </Text>
@@ -330,7 +332,7 @@ export default function SettingsScreen() {
           <Text variant="caption" className="px-1 text-center">
             LinkVault · {APP_TAGLINE}
           </Text>
-        </View>
+        </Animated.View>
       </ScrollView>
 
       <ActionSheet ref={importSheet} title="Import from" items={importItems} />

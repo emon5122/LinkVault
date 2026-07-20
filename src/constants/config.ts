@@ -30,4 +30,4 @@ export const ANDROID_NOTIFICATION_CHANNEL = 'reminders';
 
 /** Default icon assigned to a new folder (Lucide icon name — see `constants/icons.ts`). */
 export const DEFAULT_FOLDER_ICON = 'folder';
-export const DEFAULT_FOLDER_COLOR = '#2563eb';
+export const DEFAULT_FOLDER_COLOR = '#4f46e5';

@@ -1,7 +1,9 @@
-import { Pressable, View, type PressableProps, type ViewProps } from 'react-native';
+import { View, type PressableProps, type ViewProps } from 'react-native';
 
 import { cn } from '@/utils/cn';
 import { haptics } from '@/utils/haptics';
+
+import { AnimatedPressable, usePressScale } from './pressable-scale';
 
 export interface CardProps extends ViewProps {
   className?: string;
@@ -39,8 +41,11 @@ export function PressableCard({
   children,
   ...props
 }: PressableCardProps) {
+  const press = usePressScale(0.97);
   return (
-    <Pressable
+    <AnimatedPressable
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onPress={(e) => {
         if (hapticOnPress) haptics.light();
         onPress?.(e);
@@ -49,13 +54,11 @@ export function PressableCard({
         haptics.medium();
         onLongPress?.(e);
       }}
-      className={cn(
-        'rounded-2xl border border-border bg-card active:bg-muted',
-        className,
-      )}
+      style={press.style}
+      className={cn('rounded-2xl border border-border bg-card active:bg-muted', className)}
       {...props}
     >
       {children}
-    </Pressable>
+    </AnimatedPressable>
   );
 }

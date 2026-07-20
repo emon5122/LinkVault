@@ -13,9 +13,9 @@ export function Switch({ value, onValueChange, ...props }: SwitchProps) {
         haptics.selection();
         onValueChange?.(next);
       }}
-      trackColor={{ false: isDark ? '#3f3f46' : '#d4d4d8', true: colors.primary }}
+      trackColor={{ false: isDark ? '#334155' : '#cbd5e1', true: colors.primary }}
       thumbColor={colors.background}
-      ios_backgroundColor={isDark ? '#3f3f46' : '#d4d4d8'}
+      ios_backgroundColor={isDark ? '#334155' : '#cbd5e1'}
       {...props}
     />
   );

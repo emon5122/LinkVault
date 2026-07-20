@@ -17,7 +17,9 @@ export function QuickTile({ icon: Icon, label, count, color, onPress }: QuickTil
   return (
     <PressableCard
       onPress={onPress}
-      className="flex-1 gap-2 p-3"
+      // `w-full` (not `flex-1`) because Home wraps each tile in a flex-1 Animated.View for the
+      // staggered entrance; the tile fills that wrapper rather than competing with it for flex.
+      className="w-full gap-2 p-3"
       accessibilityRole="button"
       accessibilityLabel={`${label}${count != null ? `, ${count}` : ''}`}
     >

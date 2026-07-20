@@ -1,10 +1,11 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { ActivityIndicator, Pressable, type PressableProps } from 'react-native';
+import { ActivityIndicator, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/providers/theme-provider';
 import { cn } from '@/utils/cn';
 import { haptics } from '@/utils/haptics';
 
+import { AnimatedPressable, usePressScale } from './pressable-scale';
 import { Text } from './text';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
@@ -62,10 +63,12 @@ export function Button({
   onPress,
   className,
   children,
+  style,
   ...props
 }: ButtonProps) {
   const { colors } = useTheme();
   const isDisabled = disabled || loading;
+  const press = usePressScale(0.97);
 
   const iconColor =
     variant === 'primary'
@@ -77,14 +80,17 @@ export function Button({
           : colors.foreground;
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
+      onPressIn={isDisabled ? undefined : press.onPressIn}
+      onPressOut={isDisabled ? undefined : press.onPressOut}
       onPress={(e) => {
         haptics.light();
         onPress?.(e);
       }}
+      style={[press.style, style as StyleProp<ViewStyle>]}
       className={cn(
         'flex-row items-center justify-center gap-2',
         SIZE[size],
@@ -104,7 +110,7 @@ export function Button({
           {children}
         </>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -125,17 +131,22 @@ export function IconButton({
   variant = 'plain',
   onPress,
   className,
+  style,
   ...props
 }: IconButtonProps) {
   const { colors } = useTheme();
+  const press = usePressScale(0.9);
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       hitSlop={8}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onPress={(e) => {
         haptics.light();
         onPress?.(e);
       }}
+      style={[press.style, style as StyleProp<ViewStyle>]}
       className={cn(
         'h-10 w-10 items-center justify-center rounded-full active:bg-muted',
         variant === 'muted' && 'bg-muted',
@@ -144,6 +155,6 @@ export function IconButton({
       {...props}
     >
       <Icon size={size} color={color ?? colors.foreground} />
-    </Pressable>
+    </AnimatedPressable>
   );
 }
