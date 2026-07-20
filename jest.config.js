@@ -31,7 +31,6 @@ module.exports = {
       'react-native-screens',
       'react-native-svg',
       'react-native-url-polyfill',
-      'react-native-mmkv',
     ].join('|')})/)`,
   ],
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/app/**'],

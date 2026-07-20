@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "linkvault",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.linkvault.app"
@@ -30,14 +29,29 @@
       "intentFilters": [
         {
           "action": "SEND",
-          "category": ["DEFAULT"],
-          "data": [{ "mimeType": "text/plain" }]
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "text/plain"
+            }
+          ]
         },
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "https", "host": "linkvault.app", "pathPrefix": "/add" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "https",
+              "host": "linkvault.app",
+              "pathPrefix": "/add"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -59,8 +73,18 @@
       "expo-sqlite",
       "expo-secure-store",
       "expo-sharing",
-      ["expo-notifications", { "color": "#2563eb" }],
-      ["expo-web-browser", { "experimentalLauncherActivity": true }]
+      [
+        "expo-notifications",
+        {
+          "color": "#2563eb"
+        }
+      ],
+      [
+        "expo-web-browser",
+        {
+          "experimentalLauncherActivity": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

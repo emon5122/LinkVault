@@ -1,19 +1,20 @@
 /**
- * MMKV-backed key/value storage for preferences and lightweight app state.
+ * SQLite-backed key/value storage for preferences and lightweight app state.
  *
- * MMKV is a synchronous native module (does not run in Expo Go — a development build is required).
+ * Backed by `expo-sqlite/kv-store`, which ships with Expo Go and exposes synchronous accessors,
+ * so this module keeps the synchronous surface the rest of the app already relies on. (It replaced
+ * MMKV, whose Nitro native module cannot load in Expo Go.)
  * This module exposes a typed JSON helper plus a Zustand `persist` adapter so stores can be
  * durable without touching the database.
  */
-import { createMMKV } from 'react-native-mmkv';
+import Storage from 'expo-sqlite/kv-store';
 import type { StateStorage } from 'zustand/middleware';
 
-// MMKV v4 is Nitro-based: instances are created via `createMMKV`, not `new MMKV`.
-export const storage = createMMKV({ id: 'linkvault' });
+export const storage = Storage;
 
 /** Read + JSON-parse a value, returning `fallback` when absent or malformed. */
 export function getJSON<T>(key: string, fallback: T): T {
-  const raw = storage.getString(key);
+  const raw = storage.getItemSync(key);
   if (raw == null) return fallback;
   try {
     return JSON.parse(raw) as T;
@@ -23,32 +24,35 @@ export function getJSON<T>(key: string, fallback: T): T {
 }
 
 export function setJSON<T>(key: string, value: T): void {
-  storage.set(key, JSON.stringify(value));
+  storage.setItemSync(key, JSON.stringify(value));
 }
 
 export function getString(key: string): string | undefined {
-  return storage.getString(key);
+  return storage.getItemSync(key) ?? undefined;
 }
 
 export function setString(key: string, value: string): void {
-  storage.set(key, value);
+  storage.setItemSync(key, value);
 }
 
+// The kv-store persists strings only, so booleans round-trip through a literal encoding.
 export function getBoolean(key: string, fallback = false): boolean {
-  return storage.getBoolean(key) ?? fallback;
+  const raw = storage.getItemSync(key);
+  if (raw == null) return fallback;
+  return raw === 'true';
 }
 
 export function setBoolean(key: string, value: boolean): void {
-  storage.set(key, value);
+  storage.setItemSync(key, value ? 'true' : 'false');
 }
 
 export function remove(key: string): void {
-  storage.remove(key);
+  storage.removeItemSync(key);
 }
 
-/** Zustand persist middleware adapter backed by MMKV. */
+/** Zustand persist middleware adapter backed by the SQLite kv-store. */
 export const zustandStorage: StateStorage = {
-  getItem: (name) => storage.getString(name) ?? null,
-  setItem: (name, value) => storage.set(name, value),
-  removeItem: (name) => storage.remove(name),
+  getItem: (name) => storage.getItemSync(name),
+  setItem: (name, value) => storage.setItemSync(name, value),
+  removeItem: (name) => storage.removeItemSync(name),
 };

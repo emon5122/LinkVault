@@ -1,6 +1,6 @@
 /**
  * Persisted user settings (theme, browser behavior, clipboard monitoring, haptics, default views,
- * and reminder schedules). Backed by MMKV via the Zustand `persist` middleware.
+ * and reminder schedules). Backed by the SQLite kv-store via the Zustand `persist` middleware.
  *
  * The store holds state only; side effects (scheduling notifications, toggling the haptics flag) are
  * wired up where they belong — the Settings screen and the app providers — so the store stays sync.

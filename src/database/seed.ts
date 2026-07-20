@@ -1,6 +1,8 @@
 /**
- * One-time sample data so a fresh install isn't an empty shell. Guarded by an MMKV flag and a
- * safety check that the library is actually empty, so it never overwrites real user data.
+ * One-time sample data so a fresh install isn't an empty shell *during development*. Guarded three
+ * ways: it runs only in dev builds (`__DEV__`), only once (a kv-store flag), and only when the
+ * library is actually empty — so it never ships to production users and never overwrites real data.
+ * Production first-run shows the real empty state (see the home screen's `EmptyState`).
  */
 import { getBoolean, setBoolean } from '@/services/storage';
 import { extractHost, faviconUrlForHost } from '@/utils/url';
@@ -108,6 +110,8 @@ const SEED_LINKS: SeedLink[] = [
 
 /** Seed sample data if this is a fresh, empty install. Safe to call on every launch. */
 export async function seedSampleDataIfNeeded(): Promise<void> {
+  // Never seed sample data in release builds — production users start with a clean, empty vault.
+  if (!__DEV__) return;
   if (getBoolean(SEED_FLAG)) return;
 
   const stats = await statsRepository.getOverview();
