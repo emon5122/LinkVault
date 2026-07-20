@@ -33,7 +33,7 @@ import {
 import { useTheme } from '@/providers/theme-provider';
 import type { LinkMetadata } from '@/services';
 import { haptics } from '@/utils/haptics';
-import { isValidUrl } from '@/utils/url';
+import { extractHost, faviconUrlForHost, isValidUrl } from '@/utils/url';
 import { linkFormSchema, type LinkFormValues } from '@/utils/validation';
 
 export default function AddLinkScreen() {
@@ -149,13 +149,17 @@ export default function AddLinkScreen() {
   };
 
   const onSubmit = (values: LinkFormValues) => {
+    // If the user saves before metadata resolves, still derive a host-based favicon so the link
+    // isn't left iconless (mirrors the fallback fetchMetadata would have produced).
+    const host = extractHost(values.url);
+    const favicon = meta.favicon ?? (host ? faviconUrlForHost(host) : null);
     const input = {
       url: values.url,
       title: values.title || undefined,
       description: values.description || null,
       notes: values.notes || null,
       image: meta.image,
-      favicon: meta.favicon,
+      favicon,
       siteName: meta.siteName,
       favorite: values.favorite,
       readLater: values.readLater,
@@ -183,7 +187,8 @@ export default function AddLinkScreen() {
           <Button
             title="Save"
             size="sm"
-            disabled={!urlValid}
+            // Block saving a duplicate — the warning banner below lets the user open the existing one.
+            disabled={!urlValid || isDuplicate}
             loading={createLink.isPending || updateLink.isPending}
             onPress={handleSubmit(onSubmit)}
           />

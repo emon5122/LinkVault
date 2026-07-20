@@ -13,7 +13,6 @@ import {
   getDatabase,
   linksRepository,
   relationsRepository,
-  resetDatabaseContents,
   tagsRepository,
   type FolderLinkRow,
   type LinkTagRow,
@@ -82,9 +81,20 @@ export async function restoreBackup(backup: BackupFile): Promise<{
   tags: number;
 }> {
   const db = getDatabase();
-  await resetDatabaseContents();
 
   await db.withTransactionAsync(async () => {
+    // Clear existing data as the first step INSIDE the restore transaction (not before it), so if
+    // any insert below fails on a malformed backup, the whole thing rolls back and the user keeps
+    // their original library instead of being left with an empty database.
+    await db.execAsync(`
+      DELETE FROM link_tags;
+      DELETE FROM folder_links;
+      DELETE FROM links;
+      DELETE FROM folders;
+      DELETE FROM tags;
+      DELETE FROM sqlite_sequence;
+    `);
+
     for (const f of backup.data.folders) {
       await db.runAsync(
         'INSERT INTO folders (id, name, icon, color, position, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)',

@@ -29,7 +29,9 @@ async function list(): Promise<Folder[]> {
 async function listWithCounts(): Promise<FolderWithCount[]> {
   const db = getDatabase();
   const rows = await db.getAllAsync<FolderRow & { linkCount: number }>(
-    `SELECT f.*, COUNT(fl.linkId) AS linkCount
+    // COUNT(l.id) — not COUNT(fl.linkId) — so archived links (whose `l` row is NULL after the
+    // filtered join) don't inflate the count.
+    `SELECT f.*, COUNT(l.id) AS linkCount
      FROM folders f
      LEFT JOIN folder_links fl ON fl.folderId = f.id
      LEFT JOIN links l ON l.id = fl.linkId AND l.archived = 0

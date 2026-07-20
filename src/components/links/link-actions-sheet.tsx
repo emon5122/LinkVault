@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import {
   Archive,
   ArchiveRestore,
+  CheckCheck,
   Clock,
   Copy,
   ExternalLink,
@@ -18,7 +19,7 @@ import { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { ActionSheet, type ActionSheetItem } from '@/components/ui/action-sheet';
-import { useDeleteLink, useRecordOpen, useSetLinkFlag } from '@/hooks';
+import { useDeleteLink, useMarkRead, useRecordOpen, useSetLinkFlag } from '@/hooks';
 import { useTheme } from '@/providers/theme-provider';
 import { browserService } from '@/services';
 import { useSettingsStore } from '@/store';
@@ -39,6 +40,7 @@ export const LinkActionsSheet = forwardRef<BottomSheetModal, LinkActionsSheetPro
     const setFlag = useSetLinkFlag();
     const recordOpen = useRecordOpen();
     const deleteLink = useDeleteLink();
+    const markRead = useMarkRead();
 
     const confirmDelete = useCallback(
       (target: Link) => {
@@ -114,6 +116,20 @@ export const LinkActionsSheet = forwardRef<BottomSheetModal, LinkActionsSheetPro
           icon: Clock,
           onPress: () => setFlag.mutate({ id: link.id, flag: 'readLater', value: !link.readLater }),
         },
+        // "Mark as read" clears the Read Later flag and stamps readAt — only meaningful for queued items.
+        ...(link.readLater
+          ? [
+              {
+                key: 'markRead',
+                label: 'Mark as read',
+                icon: CheckCheck,
+                onPress: () => {
+                  markRead.mutate({ id: link.id });
+                  haptics.success();
+                },
+              } satisfies ActionSheetItem,
+            ]
+          : []),
         {
           key: 'pin',
           label: link.pinned ? 'Unpin' : 'Pin to top',
@@ -141,7 +157,7 @@ export const LinkActionsSheet = forwardRef<BottomSheetModal, LinkActionsSheetPro
         },
       );
       return list;
-    }, [link, openInApp, name, recordOpen, setFlag, router, confirmDelete]);
+    }, [link, openInApp, name, recordOpen, setFlag, markRead, router, confirmDelete]);
 
     return <ActionSheet ref={ref} title={link?.title} items={items} />;
   },

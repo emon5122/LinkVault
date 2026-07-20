@@ -28,17 +28,6 @@
       "predictiveBackGestureEnabled": false,
       "intentFilters": [
         {
-          "action": "SEND",
-          "category": [
-            "DEFAULT"
-          ],
-          "data": [
-            {
-              "mimeType": "text/plain"
-            }
-          ]
-        },
-        {
           "action": "VIEW",
           "autoVerify": true,
           "data": [
@@ -84,7 +73,8 @@
         {
           "experimentalLauncherActivity": true
         }
-      ]
+      ],
+      "expo-share-intent"
     ],
     "experiments": {
       "typedRoutes": true,

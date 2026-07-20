@@ -32,7 +32,9 @@ async function list(): Promise<Tag[]> {
 async function listWithCounts(): Promise<TagWithCount[]> {
   const db = getDatabase();
   const rows = await db.getAllAsync<TagRow & { linkCount: number }>(
-    `SELECT t.*, COUNT(lt.linkId) AS linkCount
+    // COUNT(l.id) — not COUNT(lt.linkId) — so archived links don't inflate the count or skew the
+    // most-used ordering.
+    `SELECT t.*, COUNT(l.id) AS linkCount
      FROM tags t
      LEFT JOIN link_tags lt ON lt.tagId = t.id
      LEFT JOIN links l ON l.id = lt.linkId AND l.archived = 0

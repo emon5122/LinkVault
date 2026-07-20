@@ -113,13 +113,12 @@ export async function seedSampleDataIfNeeded(): Promise<void> {
   // Never seed sample data in release builds — production users start with a clean, empty vault.
   if (!__DEV__) return;
   if (getBoolean(SEED_FLAG)) return;
+  // Claim the seed synchronously — before the first `await` — so a StrictMode/concurrent second
+  // invocation sees the flag and bails instead of racing us to insert a duplicate set.
+  setBoolean(SEED_FLAG, true);
 
   const stats = await statsRepository.getOverview();
-  if (stats.totalLinks > 0 || stats.folders > 0) {
-    // The user already has data — mark as seeded and leave it alone.
-    setBoolean(SEED_FLAG, true);
-    return;
-  }
+  if (stats.totalLinks > 0 || stats.folders > 0) return; // already has data — nothing to seed
 
   const folderIdByName = new Map<string, number>();
   for (const folder of SEED_FOLDERS) {
@@ -143,6 +142,4 @@ export async function seedSampleDataIfNeeded(): Promise<void> {
       tagIds: tags.map((t) => t.id),
     });
   }
-
-  setBoolean(SEED_FLAG, true);
 }
