@@ -167,7 +167,7 @@ eas build --profile production --platform android
 eas submit --profile production --platform android
 ```
 
-App identifiers: `com.linkvault.app` (Android package & iOS bundle id). New Architecture is enabled.
+App identifiers: `com.emon5122.linkvault` (Android package & iOS bundle id). New Architecture is enabled.
 
 ---
 

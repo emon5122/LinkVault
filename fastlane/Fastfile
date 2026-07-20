@@ -4,7 +4,7 @@ platform :android do
   desc "Push the Play Store listing (text + graphics) without uploading a binary"
   lane :metadata do
     supply(
-      package_name: "com.linkvault.app",
+      package_name: "com.emon5122.linkvault",
       json_key: ENV["SUPPLY_JSON_KEY"] || "google-service-account.json",
       metadata_path: "./fastlane/metadata/android",
       skip_upload_apk: true,

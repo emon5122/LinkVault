@@ -9,10 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.linkvault.app"
+      "bundleIdentifier": "com.emon5122.linkvault"
     },
     "android": {
-      "package": "com.linkvault.app",
+      "package": "com.emon5122.linkvault",
       "blockedPermissions": [
         "com.google.android.gms.permission.AD_ID",
         "android.permission.SYSTEM_ALERT_WINDOW",

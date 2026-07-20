@@ -4,7 +4,7 @@ This project ships a fully automated release pipeline. After a **one-time human 
 Google legally requires a verified person to do), every release is a single `git tag` with **zero
 manual work**.
 
-- **App ID:** `com.linkvault.app`
+- **App ID:** `com.emon5122.linkvault`
 - **Build/submit:** EAS Build + EAS Submit (Expo cloud) via GitHub Actions
 - **Signing:** Play App Signing + an EAS-managed upload keystore (no keys in the repo)
 - **Store listing:** managed as code (`fastlane/metadata/…`) and pushed via `fastlane supply`
