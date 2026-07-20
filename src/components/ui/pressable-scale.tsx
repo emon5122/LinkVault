@@ -26,10 +26,14 @@ export function usePressScale(scaleTo = 0.97) {
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return {
     style,
+    // Reanimated shared values are mutated through `.value` by design (and Reanimated supports the
+    // React Compiler), so the compiler's immutability check is a false positive on these two lines.
     onPressIn: () => {
+      // eslint-disable-next-line react-hooks/immutability
       scale.value = withSpring(scaleTo, PRESS_SPRING);
     },
     onPressOut: () => {
+      // eslint-disable-next-line react-hooks/immutability
       scale.value = withSpring(1, PRESS_SPRING);
     },
   };
