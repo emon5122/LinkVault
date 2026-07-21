@@ -33,7 +33,7 @@ import {
 import { useTheme } from '@/providers/theme-provider';
 import type { LinkMetadata } from '@/services';
 import { haptics } from '@/utils/haptics';
-import { extractHost, faviconUrlForHost, isValidUrl } from '@/utils/url';
+import { ensureProtocol, extractHost, faviconUrlForHost, isValidUrl } from '@/utils/url';
 import { linkFormSchema, type LinkFormValues } from '@/utils/validation';
 
 export default function AddLinkScreen() {
@@ -154,7 +154,8 @@ export default function AddLinkScreen() {
     const host = extractHost(values.url);
     const favicon = meta.favicon ?? (host ? faviconUrlForHost(host) : null);
     const input = {
-      url: values.url,
+      // Store a canonical URL with an explicit scheme so it opens, copies, and shares cleanly.
+      url: ensureProtocol(values.url),
       title: values.title || undefined,
       description: values.description || null,
       notes: values.notes || null,

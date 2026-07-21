@@ -1,27 +1,37 @@
 /** Opening, sharing, and copying links. */
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
-import { Linking, Share } from 'react-native';
+import { Alert, Linking, Share } from 'react-native';
 
 import { Palette } from '@/constants/theme';
 import type { ThemeName } from '@/constants/theme';
+import { ensureProtocol } from '@/utils/url';
 
 /** Open a URL in the in-app browser or hand off to the system default browser. */
 export async function openLink(
   url: string,
   options?: { inApp?: boolean; theme?: ThemeName },
 ): Promise<void> {
+  // Users frequently save bare hosts like "google.com" or "www.google.com". Both WebBrowser and
+  // Linking require an explicit scheme, so upgrade to https:// before handing the URL off — this
+  // also repairs links already stored without a scheme.
+  const target = ensureProtocol(url);
   const inApp = options?.inApp ?? true;
-  if (inApp) {
-    const colors = Palette[options?.theme ?? 'light'];
-    await WebBrowser.openBrowserAsync(url, {
-      controlsColor: colors.primary,
-      toolbarColor: colors.background,
-      enableBarCollapsing: true,
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.AUTOMATIC,
-    });
-  } else {
-    await Linking.openURL(url);
+  try {
+    if (inApp) {
+      const colors = Palette[options?.theme ?? 'light'];
+      await WebBrowser.openBrowserAsync(target, {
+        controlsColor: colors.primary,
+        toolbarColor: colors.background,
+        enableBarCollapsing: true,
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.AUTOMATIC,
+      });
+    } else {
+      await Linking.openURL(target);
+    }
+  } catch {
+    // No call site catches this; surface the failure instead of letting the tap appear inert.
+    Alert.alert("Couldn't open link", `This link can't be opened:\n${target}`);
   }
 }
 
