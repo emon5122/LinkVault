@@ -10,7 +10,10 @@ platform :android do
       skip_upload_apk: true,
       skip_upload_aab: true,
       skip_upload_metadata: false,
-      skip_upload_changelogs: false,
+      # Changelogs are release-scoped (they attach to a specific version code on a track). This lane
+      # pushes only the global store listing + graphics with no binary, so skip them — otherwise
+      # supply fails with "Could not find release for version code '' to update changelog".
+      skip_upload_changelogs: true,
       # Images upload only if present under en-US/images. Missing images are skipped, not an error.
       skip_upload_images: false,
       skip_upload_screenshots: false,
