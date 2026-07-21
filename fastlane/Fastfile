@@ -17,7 +17,11 @@ platform :android do
       # Images upload only if present under en-US/images. Missing images are skipped, not an error.
       skip_upload_images: false,
       skip_upload_screenshots: false,
-      track: "production",
+      # Point at the track that actually has a release (internal, version code 3). supply resolves a
+      # release for changelog context even when uploading only listing/graphics; "production" has no
+      # release yet, which caused "Could not find release for version code ''". The store listing +
+      # screenshots are global (not track-scoped), so this only fixes release resolution.
+      track: "internal",
       validate_only: false
     )
   end
