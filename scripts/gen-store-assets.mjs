@@ -4,7 +4,11 @@
 //
 // Outputs:
 //   assets/images/*                          — app icon, adaptive icon (fg/bg/mono), splash, favicon
-//   fastlane/metadata/android/en-US/images/* — 512 store icon, 1024x500 feature graphic, screenshots
+//   fastlane/metadata/android/en-US/images/* — 512 store icon, 1024x500 feature graphic
+//
+// NOTE: Play Store screenshots are NOT generated here — they are real device captures of the app
+// (fastlane/.../{phone,sevenInch,tenInch}Screenshots). This script must never write into those
+// folders or it would clobber the real screenshots. Re-run only after a branding change.
 //
 // The LinkVault mark is a minimal white bookmark on a blue field. Tweak PALETTE / the builders below
 // to re-brand, then re-run. No design tool required.
@@ -116,142 +120,6 @@ function featureGraphic() {
   return svg(1024, 500, body, blueGradient('g'));
 }
 
-// --- screenshot scaffold (1080x1920) --------------------------------------
-
-const W = 1080;
-const H = 1920;
-const PAD = 72;
-
-function screenshot(headline, sub, bodyEls) {
-  const band =
-    rect(0, 0, W, 430, 0, 'url(#g)') +
-    text(PAD, 190, 66, PALETTE.white, 800, headline) +
-    text(PAD, 250, 34, 'rgba(255,255,255,0.9)', 500, sub);
-  return svg(W, H, rect(0, 0, W, H, 0, PALETTE.surface) + band + bodyEls, blueGradient('g'));
-}
-
-function card(x, y, w, h) {
-  return rect(x, y, w, h, 28, PALETTE.white, { stroke: PALETTE.border, sw: 2 });
-}
-
-function favicon(x, y, s, color) {
-  return rect(x, y, s, s, 14, color, { opacity: 0.18 }) + rect(x + s / 2 - 3, y + s / 2 - 3, 6, 6, 3, color);
-}
-
-function linkRow(x, y, w, color, title, host, highlight) {
-  const fx = x + 24;
-  const fy = y + 24;
-  let t;
-  if (highlight) {
-    const before = title.slice(0, title.toLowerCase().indexOf(highlight.toLowerCase()));
-    const rest = title.slice(before.length);
-    const hi = rest.slice(0, highlight.length);
-    const after = rest.slice(highlight.length);
-    t =
-      `<text x="${fx + 96}" y="${y + 62}" font-family="${FONT}" font-size="34" font-weight="600" fill="${PALETTE.ink}">` +
-      `${esc(before)}<tspan fill="${PALETTE.blue}" font-weight="700">${esc(hi)}</tspan>${esc(after)}</text>`;
-  } else {
-    t = text(fx + 96, y + 62, 34, PALETTE.ink, 600, title);
-  }
-  return (
-    card(x, y, w, 132) +
-    favicon(fx, fy, 72, color) +
-    t +
-    text(fx + 96, y + 104, 26, PALETTE.muted, 500, host)
-  );
-}
-
-function quickTile(x, y, w, color, label, count) {
-  return (
-    card(x, y, w, 150) +
-    rect(x + 22, y + 22, 54, 54, 16, color, { opacity: 0.18 }) +
-    text(x + 26, y + 118, 40, PALETTE.ink, 700, count) +
-    text(x + 90, y + 118, 26, PALETTE.muted, 500, label)
-  );
-}
-
-// Screenshot 1 — Add link
-function shotAdd() {
-  const x = PAD;
-  const w = W - PAD * 2;
-  let y = 520;
-  let els = '';
-  els += text(x, y, 30, PALETTE.muted, 600, 'URL');
-  y += 26;
-  els += card(x, y, w, 96) + text(x + 28, y + 60, 32, PALETTE.ink, 500, 'https://docs.expo.dev');
-  y += 140;
-  // preview card
-  els += card(x, y, w, 320);
-  els += rect(x + 24, y + 24, w - 48, 170, 18, PALETTE.surface);
-  els += bookmark(x + w / 2, y + 108, 54, 66, 8, 20, PALETTE.blue);
-  els += text(x + 28, y + 244, 34, PALETTE.ink, 700, 'Expo Documentation');
-  els += text(x + 28, y + 288, 26, PALETTE.muted, 500, 'docs.expo.dev');
-  y += 360;
-  // chips
-  const chips = ['Development', 'react-native', 'docs'];
-  let cx = x;
-  chips.forEach((c, i) => {
-    const cw = 60 + c.length * 17;
-    els += rect(cx, y, cw, 60, 30, i === 0 ? PALETTE.blue : PALETTE.white, {
-      stroke: i === 0 ? PALETTE.blue : PALETTE.border,
-      sw: 2,
-    });
-    els += text(cx + cw / 2, y + 40, 27, i === 0 ? PALETTE.white : PALETTE.ink, 600, c, 'middle');
-    cx += cw + 18;
-  });
-  y += 120;
-  els += rect(x, y, w, 104, 26, PALETTE.blue);
-  els += text(W / 2, y + 66, 34, PALETTE.white, 700, 'Save', 'middle');
-  return screenshot('Save any link', 'Auto-fetched preview, folders, tags, and notes.', els);
-}
-
-// Screenshot 2 — Search
-function shotSearch() {
-  const x = PAD;
-  const w = W - PAD * 2;
-  let y = 520;
-  let els = card(x, y, w, 96);
-  els += text(x + 34, y + 60, 32, PALETTE.muted, 500, 'react');
-  y += 150;
-  els += linkRow(x, y, w, PALETTE.blue, 'React — Learn', 'react.dev', 'React');
-  y += 156;
-  els += linkRow(x, y, w, PALETTE.green, 'React Native docs', 'reactnative.dev', 'React');
-  y += 156;
-  els += linkRow(x, y, w, PALETTE.violet, 'Awesome React', 'github.com', 'React');
-  y += 156;
-  els += linkRow(x, y, w, PALETTE.amber, 'React patterns', 'reactpatterns.com', 'React');
-  return screenshot('Find anything', 'Instant search with highlighted matches.', els);
-}
-
-// Screenshot 3 — Home / organize
-function shotHome() {
-  const x = PAD;
-  const w = W - PAD * 2;
-  const tw = (w - 44) / 3;
-  let y = 520;
-  let els = '';
-  els += quickTile(x, y, tw, PALETTE.amber, 'Favorites', '18');
-  els += quickTile(x + tw + 22, y, tw, PALETTE.blue, 'Read Later', '7');
-  els += quickTile(x + (tw + 22) * 2, y, tw, PALETTE.green, 'Archive', '3');
-  y += 200;
-  els += text(x, y, 38, PALETTE.ink, 700, 'Folders');
-  y += 30;
-  const folders = [
-    ['Development', PALETTE.green],
-    ['Design', PALETTE.pink],
-    ['Reading List', PALETTE.blue],
-  ];
-  folders.forEach(([name, color]) => {
-    els += card(x, y, w, 118);
-    els += rect(x + 24, y + 26, 66, 66, 18, color, { opacity: 0.18 });
-    els += bookmark(x + 57, y + 59, 26, 32, 5, 10, color);
-    els += text(x + 116, y + 58, 34, PALETTE.ink, 600, name);
-    els += text(x + 116, y + 96, 26, PALETTE.muted, 500, '12 links');
-    y += 138;
-  });
-  return screenshot('Organized your way', 'Folders, tags, favorites, and pins.', els);
-}
-
 // --- render + write --------------------------------------------------------
 
 function write(outPath, svgStr, width) {
@@ -274,15 +142,8 @@ write(join(APP, 'android-icon-background.png'), iconBackground(), 1024);
 write(join(APP, 'android-icon-monochrome.png'), iconMonochrome(), 1024);
 write(join(APP, 'splash-icon.png'), splashMark(), 512);
 
-// Store assets
+// Store assets (icon + feature graphic only — screenshots are real captures, see note at top).
 write(join(STORE, 'icon.png'), iconFullSvg, 512);
 write(join(STORE, 'featureGraphic.png'), featureGraphic(), 1024);
-// One set of designs, rendered at phone + tablet resolutions. Google needs only one phone set
-// (2–8 images, 320–3840px, ratio <=2:1); tablet sets are optional but remove the "not optimized
-// for large screens" note. All widths below stay within Play's limits.
-const shots = [shotAdd(), shotSearch(), shotHome()];
-shots.forEach((s, i) => write(join(STORE, 'phoneScreenshots', `${i + 1}.png`), s)); // 1080x1920
-shots.forEach((s, i) => write(join(STORE, 'sevenInchScreenshots', `${i + 1}.png`), s, 1206)); // 7"
-shots.forEach((s, i) => write(join(STORE, 'tenInchScreenshots', `${i + 1}.png`), s, 1600)); // 10"
 
-console.log('\nDone. Review the PNGs, then commit them (the app icon + store graphics).');
+console.log('\nDone. Review the PNGs, then commit them (app icon + store graphics).');
