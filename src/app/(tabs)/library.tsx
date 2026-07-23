@@ -25,7 +25,7 @@ export default function LibraryScreen() {
   const s = stats.data;
 
   return (
-    <Screen>
+    <Screen edges={['top']}>
       <Header
         title="Library"
         large

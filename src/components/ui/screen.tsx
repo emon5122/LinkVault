@@ -16,8 +16,14 @@ export interface ScreenProps {
   edges?: Edge[];
 }
 
-/** Safe-area screen container with the themed background. */
-export function Screen({ children, className, edges = ['top'] }: ScreenProps) {
+/**
+ * Safe-area screen container with the themed background.
+ *
+ * Insets both ends by default — under Android edge-to-edge the bottom one keeps content clear of
+ * the system nav bar. Screens inside the tab navigator should pass `edges={['top']}`, since the tab
+ * bar already reserves the bottom inset and padding here would double it.
+ */
+export function Screen({ children, className, edges = ['top', 'bottom'] }: ScreenProps) {
   const { colors } = useTheme();
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.background }}>

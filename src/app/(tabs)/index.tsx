@@ -30,7 +30,7 @@ export default function HomeScreen() {
   const isEmpty = s != null && s.totalLinks === 0 && s.folders === 0;
 
   return (
-    <Screen>
+    <Screen edges={['top']}>
       <Header title="LinkVault" subtitle={APP_TAGLINE} large />
 
       {isEmpty ? (

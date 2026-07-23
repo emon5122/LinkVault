@@ -26,7 +26,7 @@ export default function SearchScreen() {
     router.push({ pathname: '/link/[id]', params: { id: String(link.id) } });
 
   return (
-    <Screen>
+    <Screen edges={['top']}>
       <Header title="Search" large />
       <View className="px-4 pb-2">
         <SearchBar value={query} onChangeText={setQuery} placeholder="Title, URL, notes, tag…" />

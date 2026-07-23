@@ -160,7 +160,7 @@ export default function SettingsScreen() {
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
-    <Screen>
+    <Screen edges={['top']}>
       <Header title="Settings" large />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 22, paddingBottom: 48 }}>
         {/* Appearance */}
