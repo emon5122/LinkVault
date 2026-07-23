@@ -19,10 +19,17 @@ name: Publish Site + F-Droid Repo (GitHub Pages)
 #   FDROID_KEYSTORE_PASS  its password
 #   FDROID_KEY_PASS       the key password (usually the same)
 #
-# Generate one with:
-#   keytool -genkeypair -v -keystore keystore.p12 -storetype PKCS12 \
-#     -alias linkvault -keyalg RSA -keysize 4096 -validity 10000
-#   base64 -w0 keystore.p12
+# Generate one (the keytool line is a single command — no line continuation):
+#   keytool -genkeypair -v -keystore keystore.p12 -storetype PKCS12 -alias linkvault -keyalg RSA -keysize 4096 -validity 10000
+#
+# Then upload it. PowerShell:
+#   gh secret set FDROID_KEYSTORE_P12 --body ([Convert]::ToBase64String([IO.File]::ReadAllBytes("keystore.p12")))
+#   gh secret set FDROID_KEYSTORE_PASS      # prompts hidden
+#   gh secret set FDROID_KEY_PASS
+# bash:
+#   gh secret set FDROID_KEYSTORE_P12 --body "$(base64 -w0 keystore.p12)"
+#
+# `*.p12` is gitignored, but the keystore still belongs in a password manager, not just on disk.
 #
 # Keep that keystore forever. The F-Droid client pins a repository to its signing key, so replacing
 # it orphans every existing install — they stop seeing updates with no error shown.

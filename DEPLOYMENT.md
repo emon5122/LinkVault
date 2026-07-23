@@ -240,8 +240,26 @@ the site still publishes without `/fdroid`, so a missing key can never take the 
 Listing text, screenshots and changelogs come from `fastlane/metadata/android/en-US/` — the same
 files Play uses — so the two listings cannot drift apart.
 
-**Secrets** (see the header of `pages.yml` for the `keytool` command):
-`FDROID_KEYSTORE_P12`, `FDROID_KEYSTORE_PASS`, `FDROID_KEY_PASS`.
+**Secrets:** `FDROID_KEYSTORE_P12`, `FDROID_KEYSTORE_PASS`, `FDROID_KEY_PASS`.
+
+Generate the keystore — one command, no line continuation:
+
+```
+keytool -genkeypair -v -keystore keystore.p12 -storetype PKCS12 -alias linkvault -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Upload it (PowerShell — `base64` is not a Windows command):
+
+```powershell
+gh secret set FDROID_KEYSTORE_P12 --body ([Convert]::ToBase64String([IO.File]::ReadAllBytes("keystore.p12")))
+gh secret set FDROID_KEYSTORE_PASS      # prompts hidden, stays out of shell history
+gh secret set FDROID_KEY_PASS
+```
+
+On bash, the first line is `gh secret set FDROID_KEYSTORE_P12 --body "$(base64 -w0 keystore.p12)"`.
+
+`*.p12` is gitignored, but the keystore still belongs in a password manager — losing it is
+unrecoverable (see the warning below).
 
 > Keep that keystore forever. The F-Droid client pins a repository to its signing key — replacing it
 > orphans every existing install, and they stop receiving updates with no error shown.
