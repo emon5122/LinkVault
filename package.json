@@ -2,7 +2,7 @@
   "name": "linkvault",
   "main": "expo-router/entry",
   "version": "1.2.0",
-  "packageManager": "pnpm@10.34.5",
+  "packageManager": "pnpm@11.16.0",
   "dependencies": {
     "@expo/ui": "~57.0.7",
     "@gorhom/bottom-sheet": "^5.2.14",
