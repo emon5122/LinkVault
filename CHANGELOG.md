@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/emon5122/LinkVault/compare/v1.1.0...v1.2.0) (2026-07-23)
+
+
+### Features
+
+* **ci:** add a manual workflow for pushing Play release notes ([ed8d2c3](https://github.com/emon5122/LinkVault/commit/ed8d2c33e533290672d3d7de20bc315f9cfe6012))
+* **ci:** publish a self-hosted F-Droid repository ([af449ad](https://github.com/emon5122/LinkVault/commit/af449ad9262efe9d65b3391c59a2a0b9d07cb3b2))
+
+
+### Bug Fixes
+
+* **ci:** give supply the version code when pushing release notes ([e3266c3](https://github.com/emon5122/LinkVault/commit/e3266c354fb68d253a90bf6630cec1791cedd730))
+* **ci:** stop overwriting curated Play release notes on every release ([217c71c](https://github.com/emon5122/LinkVault/commit/217c71c19ecfe97254f5fd02ffb0161262e31adc))
+* **deps:** take the Expo-sanctioned dependency versions ([99bcc87](https://github.com/emon5122/LinkVault/commit/99bcc87d30116b90c45de5c8d51da2a55ae29525))
+
 ## [1.1.0](https://github.com/emon5122/LinkVault/compare/v1.0.0...v1.1.0) (2026-07-23)
 
 
