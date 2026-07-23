@@ -24,6 +24,10 @@ on:
 
 permissions:
   contents: write
+  # Needed by the final step: dispatching another workflow is an Actions API call, and without this
+  # it fails with "HTTP 403: Resource not accessible by integration" *after* the APK has already
+  # been built and attached — so the release looks fine and the F-Droid repo silently never rebuilds.
+  actions: write
 
 concurrency:
   group: fdroid-apk-${{ github.event.release.tag_name || inputs.tag }}
