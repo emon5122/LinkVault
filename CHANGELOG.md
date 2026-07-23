@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.1](https://github.com/emon5122/LinkVault/compare/v1.2.0...v1.2.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* **ci:** let the F-Droid APK build dispatch the Pages rebuild ([4eeabf9](https://github.com/emon5122/LinkVault/commit/4eeabf9bfdbaccc2d712db4eca10f1b0f71f63da))
+* **ci:** run workflows on Node 22, which pnpm 10.34 requires ([3a690c5](https://github.com/emon5122/LinkVault/commit/3a690c553b5e0f1c6603ba1788644a01f8cdc110))
+* derive the app version from package.json and fix the F-Droid listing ([c515546](https://github.com/emon5122/LinkVault/commit/c515546be0f2e8ac030d1b328b447aac9a258b54))
+
 ## [1.2.0](https://github.com/emon5122/LinkVault/compare/v1.1.0...v1.2.0) (2026-07-23)
 
 
