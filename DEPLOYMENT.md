@@ -148,16 +148,22 @@ The loop:
 2. release-please opens (or updates) a **`chore(main): release x.y.z`** PR holding the version bump
    and the accumulated changelog. It sits there as long as you keep merging work.
 3. Merge that PR when you want to ship. release-please then:
+   - bumps `package.json` and writes `CHANGELOG.md`,
    - tags `vX.Y.Z` and publishes the GitHub release,
-   - writes `CHANGELOG.md`,
-   - bumps `package.json` **and** `app.json` → `expo.version` (via `extra-files` in
-     `release-please-config.json` — Expo's user-facing version is not managed by EAS, only
-     `versionCode` is),
-   - regenerates the Play release notes (next section).
+   - then a follow-up step syncs `app.json` → `expo.version` and the Play release notes, and commits
+     them as `chore(release): …`.
 4. The `vX.Y.Z` tag triggers `release.yml` → EAS build → Play submit.
 
 Which version you get is decided entirely by the commit messages since the last release, so there is
 no version to bump by hand anywhere.
+
+> **Do not switch this to manifest mode** (`release-please-config.json` +
+> `.release-please-manifest.json`). With a single package, the Merge plugin opens the release PR on a
+> component-less branch (`release-please--branches--main`) while the release step compares against
+> `getBranchComponent()`, which returns the `package.json` name and ignores `include-component-in-tag`.
+> They never match, so the PR merges and is **never tagged** — and the workflow still reports success.
+> Monorepos don't hit this because with 2+ packages the component check is skipped. This bit us once;
+> `app.json` is synced by `scripts/sync-app-version.js` instead of by `extra-files`.
 
 ### Play release notes — `scripts/play-notes.js`
 
@@ -179,8 +185,8 @@ result would exceed 500 characters, whole bullets are dropped from the end rathe
 sentence in half. Preview it any time with `pnpm changelog:play:check`.
 
 It runs in two places:
-- **release-please.yml** regenerates the file and commits it, so the repo always shows what Play
-  will say.
+- **release-please.yml** regenerates the file (alongside `scripts/sync-app-version.js`) and commits
+  both, so the repo always shows what Play will say.
 - **release.yml** pushes it to Play via `fastlane android release_notes`, *after* the submit —
   `supply` attaches notes to a release that already exists on the track, so running it earlier fails
   with `Could not find release for version code ''`. That step is `continue-on-error` on purpose: if
