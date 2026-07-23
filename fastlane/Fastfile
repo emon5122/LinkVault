@@ -36,11 +36,21 @@ platform :android do
   # fastlane/metadata/android/en-US/changelogs/default.txt, which `scripts/play-notes.js`
   # regenerates from CHANGELOG.md whenever release-please cuts a release.
   lane :release_notes do |options|
+    # supply normally learns the version code from the binary it just uploaded. This lane uploads
+    # nothing, so it has to be told — otherwise it fails with
+    # "Cannot find changelog because no version code given".
+    version_code = options[:version_code] || ENV["SUPPLY_VERSION_CODE"]
+    UI.user_error!(
+      "release_notes needs a version code. Pass version_code:123 or set SUPPLY_VERSION_CODE. " \
+      "Find it on the build in Play Console, or in the `eas submit` output."
+    ) if version_code.to_s.strip.empty?
+
     supply(
       package_name: "com.emon5122.linkvault",
       json_key: ENV["SUPPLY_JSON_KEY"] || "google-service-account.json",
       metadata_path: "./fastlane/metadata/android",
       track: options[:track] || ENV["SUPPLY_TRACK"] || "internal",
+      version_code: version_code.to_i,
       skip_upload_apk: true,
       skip_upload_aab: true,
       skip_upload_metadata: true,

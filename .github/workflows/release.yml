@@ -95,14 +95,28 @@ jobs:
       - name: Install fastlane
         run: gem install fastlane --no-document
 
+      # supply attaches notes to a specific release, and this lane uploads no binary for it to infer
+      # one from — so the version code has to be looked up. It lives on EAS, not in the repo
+      # (`appVersionSource: remote` + autoIncrement), which is why it's read back from the build.
+      - name: Resolve version code
+        id: vc
+        continue-on-error: true
+        run: |
+          CODE=$(eas build:list --platform android --limit 1 --status finished \
+                   --non-interactive --json 2>/dev/null | jq -r '.[0].appBuildVersion // empty')
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Resolved versionCode: ${CODE:-<none>}"
+
       - name: Push release notes to Google Play
         # Non-fatal on purpose: Play can take a little while to surface a freshly uploaded release,
-        # and a timing miss here must not fail a build that already shipped. The notes can be
-        # re-pushed any time with `fastlane android release_notes track:<track>`.
+        # and a timing miss here must not fail a build that already shipped. Recover from
+        # Actions -> Push Release Notes, which takes the track and version code directly.
+        if: ${{ steps.vc.outputs.code != '' }}
         continue-on-error: true
         env:
           SUPPLY_JSON_KEY: google-service-account.json
           SUPPLY_TRACK: ${{ steps.track.outputs.name }}
+          SUPPLY_VERSION_CODE: ${{ steps.vc.outputs.code }}
         run: fastlane android release_notes
 
       - name: Clean up service account key

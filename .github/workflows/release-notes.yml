@@ -14,6 +14,10 @@ name: Push Release Notes
 on:
   workflow_dispatch:
     inputs:
+      version_code:
+        description: 'Version code of the release to annotate (from the eas submit output or Play Console)'
+        required: true
+        type: string
       track:
         description: 'Play track whose release should get the notes'
         required: true
@@ -49,7 +53,7 @@ jobs:
 
       - name: Show what will be pushed
         run: |
-          echo "Track: ${{ inputs.track }}"
+          echo "Track: ${{ inputs.track }}  ·  versionCode: ${{ inputs.version_code }}"
           echo "---"
           cat fastlane/metadata/android/en-US/changelogs/default.txt
 
@@ -70,6 +74,7 @@ jobs:
         env:
           SUPPLY_JSON_KEY: google-service-account.json
           SUPPLY_TRACK: ${{ inputs.track }}
+          SUPPLY_VERSION_CODE: ${{ inputs.version_code }}
         run: fastlane android release_notes
 
       - name: Clean up service account key
