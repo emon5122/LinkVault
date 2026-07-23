@@ -44,7 +44,7 @@ jobs:
       # Everything below runs only on the push that actually cuts a release.
       - name: Checkout
         if: ${{ steps.release.outputs.release_created }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
