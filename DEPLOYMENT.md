@@ -220,6 +220,46 @@ Then run **Push Release Notes** against that track, since `release.yml` never go
 Pushes `fastlane/metadata/android/en-US/*` (title, descriptions, release notes, and any graphics) to
 Play. Runs automatically when those files change, or manually from the Actions tab.
 
+### F-Droid — `.github/workflows/fdroid-apk.yml` + `pages.yml`
+
+LinkVault ships through a **self-hosted F-Droid repository**, not f-droid.org. Users add
+`https://emon5122.github.io/LinkVault/fdroid/repo` in the F-Droid client and get updates like any
+other app.
+
+The chain, off the same tag that drives Play:
+
+1. A release is published → `fdroid-apk.yml` builds an **APK** on EAS (`fdroid` profile) and attaches
+   it to the GitHub Release. APKs stay out of git — they are ~100 MB each.
+2. It then triggers `pages.yml`, which pulls the APKs back down from the last few releases, builds a
+   signed repository index with `fdroidserver`, and deploys it alongside the privacy policy.
+
+`pages.yml` is the **only** workflow that deploys Pages. A Pages deployment replaces the whole site,
+so a second deployer would delete whichever half it didn't build. If the F-Droid secrets are absent
+the site still publishes without `/fdroid`, so a missing key can never take the privacy policy down.
+
+Listing text, screenshots and changelogs come from `fastlane/metadata/android/en-US/` — the same
+files Play uses — so the two listings cannot drift apart.
+
+**Secrets** (see the header of `pages.yml` for the `keytool` command):
+`FDROID_KEYSTORE_P12`, `FDROID_KEYSTORE_PASS`, `FDROID_KEY_PASS`.
+
+> Keep that keystore forever. The F-Droid client pins a repository to its signing key — replacing it
+> orphans every existing install, and they stop receiving updates with no error shown.
+
+#### Why not the official f-droid.org repository
+
+f-droid.org builds from source and requires a fully free dependency tree. Two dependencies disqualify
+the app as it stands:
+
+| Dependency | Pulls in | Removable? |
+| ---------- | -------- | ---------- |
+| `expo-notifications` | `com.google.firebase:firebase-messaging` | Not easily — the module's code references FCM classes, and it's an unconditional `implementation`. Only local reminders are used, so the dependency is pure dead weight, but dropping it means replacing the module. |
+| `expo-camera` | Google MLKit (barcode scanning) | Yes — set `expo.camera.barcode-scanner-enabled=false`, which makes it `compileOnly`. Costs QR folder scanning. |
+
+Getting in would mean replacing `expo-notifications` with a local-notification-only module and either
+dropping QR scanning or swapping in a FOSS scanner. Worth doing only if f-droid.org listing is a
+goal in itself — the self-hosted repo reaches the same client and the same audience today.
+
 ### Privacy policy — `.github/workflows/pages.yml`
 Publishes `pages/` to GitHub Pages whenever it changes.
 

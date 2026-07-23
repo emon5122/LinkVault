@@ -1,16 +1,39 @@
-name: Publish Privacy Policy (GitHub Pages)
+name: Publish Site + F-Droid Repo (GitHub Pages)
 
-# Hosts the privacy policy + a small landing page on GitHub Pages, giving you a real, public
-# Privacy Policy URL to paste into the Play Console (a hard requirement for publishing).
+# Publishes two things to one Pages site:
+#   /privacy.html   the Privacy Policy URL the Play Console requires
+#   /fdroid/repo    a self-hosted F-Droid repository users can add to the F-Droid client
+#
+# This is deliberately the ONLY workflow that deploys Pages. A deployment replaces the entire site,
+# so a second deployer would silently delete whichever half it didn't build.
+#
+# APKs are not kept in git — they are ~100 MB each and would bloat the repository permanently. They
+# are pulled back down from the GitHub Releases that `fdroid-apk.yml` attaches them to, so the site
+# only ever carries the few versions worth offering.
 #
 # One-time: Settings → Pages → Build and deployment → Source = "GitHub Actions".
-# The URL will be:  https://<your-username>.github.io/<repo-name>/privacy.html
+#
+# Required secrets for the F-Droid half. Without them the site still publishes, just without
+# /fdroid, so the privacy policy can never be taken down by a missing key:
+#   FDROID_KEYSTORE_P12   base64 of a PKCS#12 keystore used to sign the repo index
+#   FDROID_KEYSTORE_PASS  its password
+#   FDROID_KEY_PASS       the key password (usually the same)
+#
+# Generate one with:
+#   keytool -genkeypair -v -keystore keystore.p12 -storetype PKCS12 \
+#     -alias linkvault -keyalg RSA -keysize 4096 -validity 10000
+#   base64 -w0 keystore.p12
+#
+# Keep that keystore forever. The F-Droid client pins a repository to its signing key, so replacing
+# it orphans every existing install — they stop seeing updates with no error shown.
 
 on:
   push:
     branches: [main]
     paths:
       - 'pages/**'
+      - 'fdroid/**'
+      - 'fastlane/metadata/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -33,13 +56,101 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Assemble static site
+        run: |
+          mkdir -p site
+          cp -r pages/* site/
+
+      - name: Check for F-Droid signing key
+        id: keycheck
+        env:
+          KEYSTORE: ${{ secrets.FDROID_KEYSTORE_P12 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::FDROID_KEYSTORE_P12 is not set — publishing the site without the F-Droid repo."
+          fi
+
+      - name: Setup Python
+        if: steps.keycheck.outputs.present == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install fdroidserver
+        if: steps.keycheck.outputs.present == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq apksigner
+          pip install --quiet fdroidserver
+
+      # Only the newest few releases: every APK is ~100 MB and Pages caps a site at 1 GB.
+      - name: Download APKs from recent releases
+        if: steps.keycheck.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p fdroid/repo
+          COUNT=0
+          for TAG in $(gh release list --limit 4 --json tagName --jq '.[].tagName'); do
+            if gh release download "$TAG" --pattern '*.apk' --dir fdroid/repo --clobber 2>/dev/null; then
+              COUNT=$((COUNT+1))
+              echo "Took APK from $TAG"
+            else
+              echo "No APK attached to $TAG — skipping"
+            fi
+          done
+          echo "APKS=$COUNT" >> "$GITHUB_ENV"
+          ls -lh fdroid/repo || true
+
+      - name: Restore signing keystore
+        if: steps.keycheck.outputs.present == 'true' && env.APKS != '0'
+        env:
+          KEYSTORE: ${{ secrets.FDROID_KEYSTORE_P12 }}
+        run: printf '%s' "$KEYSTORE" | base64 -d > fdroid/keystore.p12
+
+      # F-Droid reads the same directory layout Play does, so listing text, screenshots and
+      # changelogs are shared rather than maintained twice and allowed to drift.
+      - name: Wire in the store listing
+        if: steps.keycheck.outputs.present == 'true' && env.APKS != '0'
+        run: |
+          DEST=fdroid/repo/com.emon5122.linkvault/en-US
+          mkdir -p "$DEST"
+          cp -r fastlane/metadata/android/en-US/. "$DEST"/ 2>/dev/null || true
+          cp assets/images/icon.png fdroid/icon.png 2>/dev/null || true
+
+      - name: Build the repository index
+        if: steps.keycheck.outputs.present == 'true' && env.APKS != '0'
+        working-directory: fdroid
+        env:
+          FDROID_KEYSTORE_PASS: ${{ secrets.FDROID_KEYSTORE_PASS }}
+          FDROID_KEY_PASS: ${{ secrets.FDROID_KEY_PASS }}
+        run: |
+          # fdroidserver reads the passwords from config.yml; appended here so they never touch git.
+          {
+            echo "keystorepass: \"$FDROID_KEYSTORE_PASS\""
+            echo "keypass: \"$FDROID_KEY_PASS\""
+          } >> config.yml
+          fdroid update --create-metadata --verbose
+          fdroid readmeta
+
+      - name: Add the repo to the site
+        if: steps.keycheck.outputs.present == 'true' && env.APKS != '0'
+        run: |
+          mkdir -p site/fdroid
+          cp -r fdroid/repo site/fdroid/
+          if [ -f fdroid/icon.png ]; then cp fdroid/icon.png site/fdroid/; fi
+          du -sh site
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./pages
+          path: ./site
 
       - name: Deploy to GitHub Pages
         id: deployment

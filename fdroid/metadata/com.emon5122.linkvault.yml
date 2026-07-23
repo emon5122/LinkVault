@@ -1,0 +1,29 @@
+# App metadata for the self-hosted F-Droid repository.
+#
+# Kept deliberately short: the long-form description, screenshots, and per-version changelogs are
+# read straight out of fastlane/metadata/android/en-US/, which Play already uses, so the two store
+# listings cannot drift apart. `pages.yml` copies that directory into the repo layout at build time.
+
+Categories:
+  - Internet
+  - Writing
+
+License: MIT
+
+AuthorName: emon5122
+SourceCode: https://github.com/emon5122/LinkVault
+IssueTracker: https://github.com/emon5122/LinkVault/issues
+Changelog: https://github.com/emon5122/LinkVault/blob/main/CHANGELOG.md
+
+# Declared so users see it before installing rather than discovering it at runtime. The app makes no
+# tracking calls, but it does fetch page metadata from the sites you save, and favicons via Google's
+# favicon proxy as a fallback when a site exposes no icon of its own.
+AntiFeatures:
+  NonFreeNet:
+    en-US: >-
+      Fetches page titles, descriptions and preview images directly from the websites you save, and
+      falls back to Google's favicon service when a site provides no icon. Optional Wayback Machine
+      lookups are only made for links that fail a health check. No accounts, no analytics, no ads.
+
+AutoUpdateMode: None
+UpdateCheckMode: Static

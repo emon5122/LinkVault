@@ -1,0 +1,26 @@
+# fdroidserver configuration for LinkVault's self-hosted F-Droid repository.
+#
+# This is a *binary* repository: it serves APKs that EAS built and signed, rather than being built
+# from source by F-Droid. That is the trade-off that makes it possible at all — the official
+# f-droid.org repository requires a fully FOSS dependency tree, and this app currently pulls
+# com.google.firebase:firebase-messaging (via expo-notifications) and Google MLKit (via
+# expo-camera's barcode scanner). See DEPLOYMENT.md for what removing those would cost.
+#
+# The repo URL must match where Pages actually serves it, because the F-Droid client stores the URL
+# and the signing key together — changing either makes existing installs stop updating.
+
+repo_url: https://emon5122.github.io/LinkVault/fdroid/repo
+repo_name: LinkVault
+repo_description: >-
+  Self-hosted F-Droid repository for LinkVault — a private, offline-first bookmark manager.
+  Same APKs and same signing key as the Google Play release.
+repo_icon: icon.png
+
+archive_older: 3
+
+# Keys come from CI secrets; never commit a keystore.
+keystore: keystore.p12
+repo_keyalias: linkvault
+
+# The APKs are already signed by EAS with the Play upload key. fdroidserver only signs the index.
+allow_disabled_algorithms: false

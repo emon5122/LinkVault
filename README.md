@@ -228,11 +228,38 @@ only once.
 
 ---
 
+## F-Droid
+
+LinkVault has its own F-Droid repository. In the F-Droid client, go to
+**Settings → Repositories → +** and add:
+
+```
+https://emon5122.github.io/LinkVault/fdroid/repo
+```
+
+Same builds and the same signing key as the Google Play release, so you can move between the two
+without uninstalling.
+
+**Why not f-droid.org?** The official repository builds from source and requires a fully free
+dependency tree. Two dependencies currently rule that out:
+
+- `expo-notifications` pulls `com.google.firebase:firebase-messaging` unconditionally. Only local
+  reminders are used, so the dependency does nothing here — but the module's code references FCM
+  classes, so removing it means replacing the module.
+- `expo-camera`'s barcode scanner uses Google MLKit. It can be disabled with
+  `expo.camera.barcode-scanner-enabled=false`, at the cost of QR folder scanning.
+
+The self-hosted repository reaches the same F-Droid client and the same users today. See
+[DEPLOYMENT.md](DEPLOYMENT.md) for the publishing pipeline.
+
+---
+
 ## Privacy
 
 Everything is stored locally on the device. There are no accounts, servers, sync, or analytics.
-Metadata is fetched directly from the sites you save. The architecture is intentionally
-"future-ready for sync" but ships fully offline.
+Metadata is fetched directly from the sites you save (and Google's favicon service as a fallback when
+a site exposes no icon of its own). The architecture is intentionally "future-ready for sync" but
+ships fully offline.
 
 ---
 

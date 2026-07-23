@@ -1,0 +1,94 @@
+name: Build F-Droid APK
+
+# Builds a release APK and attaches it to the GitHub Release for the tag.
+#
+# Why APK and not the AAB from release.yml: F-Droid clients install APKs directly. Play wants an app
+# bundle and repackages per device; F-Droid has no such step, so it needs a universal APK.
+#
+# The APK lives on the GitHub Release rather than in git — it is roughly 100 MB, which would bloat
+# the repository permanently after a handful of versions. `pages.yml` pulls it back down from there
+# when it assembles the F-Droid repository index.
+#
+# Signed with the same EAS-managed keystore as the Play build on purpose: a matching signature means
+# someone who installed from Play can update from the F-Droid repo (and back) without uninstalling.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and attach the APK to (e.g. v1.2.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fdroid-apk-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build-apk:
+    name: EAS APK build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: echo "name=${{ github.event.release.tag_name || inputs.tag }}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.name }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # --wait so the APK exists by the time we try to download it; --json to get the URL without
+      # scraping human-readable output.
+      - name: Build APK on EAS
+        id: build
+        run: |
+          eas build --platform android --profile fdroid --non-interactive --wait --json > build.json
+          URL=$(jq -r '.[0].artifacts.buildUrl // .[0].artifacts.applicationArchiveUrl // empty' build.json)
+          if [ -z "$URL" ]; then
+            echo "Could not find an artifact URL in the EAS response:" >&2
+            cat build.json >&2
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Download APK
+        run: |
+          curl -fsSL -o "linkvault-${{ steps.tag.outputs.name }}.apk" "${{ steps.build.outputs.url }}"
+          ls -lh linkvault-*.apk
+
+      - name: Attach APK to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ steps.tag.outputs.name }}" "linkvault-${{ steps.tag.outputs.name }}.apk" --clobber
+
+      # Publishing the repository index is pages.yml's job — it is the only workflow allowed to
+      # deploy Pages, because a Pages deployment replaces the whole site.
+      - name: Rebuild the F-Droid repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml

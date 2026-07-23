@@ -25,6 +25,13 @@
       "android": {
         "buildType": "app-bundle"
       }
+    },
+    "fdroid": {
+      "channel": "production",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
