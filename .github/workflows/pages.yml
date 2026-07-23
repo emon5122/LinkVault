@@ -118,15 +118,28 @@ jobs:
           KEYSTORE: ${{ secrets.FDROID_KEYSTORE_P12 }}
         run: printf '%s' "$KEYSTORE" | base64 -d > fdroid/keystore.p12
 
-      # F-Droid reads the same directory layout Play does, so listing text, screenshots and
-      # changelogs are shared rather than maintained twice and allowed to drift.
+      # Listing text goes into fdroidserver's *input* directory (metadata/), not repo/ — repo/ is
+      # what `fdroid update` writes, so anything staged there is ignored and the index publishes an
+      # empty summary and "No description available".
+      #
+      # fdroidserver understands fastlane's filenames, but its own take precedence and are what the
+      # index reliably picks up, so both are written from the same source files.
       - name: Wire in the store listing
         if: steps.keycheck.outputs.present == 'true' && env.APKS != '0'
         run: |
-          DEST=fdroid/repo/com.emon5122.linkvault/en-US
+          SRC=fastlane/metadata/android/en-US
+          DEST=fdroid/metadata/com.emon5122.linkvault/en-US
           mkdir -p "$DEST"
-          cp -r fastlane/metadata/android/en-US/. "$DEST"/ 2>/dev/null || true
+          cp -r "$SRC"/. "$DEST"/ 2>/dev/null || true
+
+          # fastlane name -> fdroidserver name
+          [ -f "$SRC/title.txt" ]             && cp "$SRC/title.txt"             "$DEST/name.txt"
+          [ -f "$SRC/short_description.txt" ] && cp "$SRC/short_description.txt" "$DEST/summary.txt"
+          [ -f "$SRC/full_description.txt" ]  && cp "$SRC/full_description.txt"  "$DEST/description.txt"
+
+          cp assets/images/icon.png fdroid/metadata/com.emon5122.linkvault/en-US/icon.png 2>/dev/null || true
           cp assets/images/icon.png fdroid/icon.png 2>/dev/null || true
+          echo "Staged listing files:"; ls "$DEST"
 
       - name: Build the repository index
         if: steps.keycheck.outputs.present == 'true' && env.APKS != '0'

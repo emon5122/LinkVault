@@ -54,12 +54,10 @@ jobs:
         with:
           node-version: 22
 
-      # Expo's user-facing version lives in app.json and is not managed by EAS (only versionCode
-      # is), so it has to follow package.json by hand.
-      - name: Sync app.json version
-        if: ${{ steps.release.outputs.release_created }}
-        run: node scripts/sync-app-version.js
-
+      # No app.json version sync any more: app.config.js derives the version from package.json,
+      # which release-please bumps inside the release PR. Syncing it here ran *after* the tag was
+      # created, so every tagged tree still carried the previous version.
+      #
       # Play release notes are deliberately NOT regenerated here.
       #
       # scripts/play-notes.js converts whatever is in CHANGELOG.md, and a release is frequently all
@@ -78,15 +76,3 @@ jobs:
           echo "What the changelog would generate — review before using:"
           node scripts/play-notes.js --check || true
 
-      - name: Commit release artifacts
-        if: ${{ steps.release.outputs.release_created }}
-        run: |
-          if git diff --quiet -- app.json; then
-            echo "app.json already matches package.json."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app.json
-          git commit -m "chore(release): sync app version for ${{ steps.release.outputs.tag_name }}"
-          git push

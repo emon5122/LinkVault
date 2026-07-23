@@ -149,21 +149,27 @@ The loop:
    and the accumulated changelog. It sits there as long as you keep merging work.
 3. Merge that PR when you want to ship. release-please then:
    - bumps `package.json` and writes `CHANGELOG.md`,
-   - tags `vX.Y.Z` and publishes the GitHub release,
-   - then a follow-up step syncs `app.json` → `expo.version` and the Play release notes, and commits
-     them as `chore(release): …`.
-4. The `vX.Y.Z` tag triggers `release.yml` → EAS build → Play submit.
+   - tags `vX.Y.Z` and publishes the GitHub release.
+4. The `vX.Y.Z` tag triggers `release.yml` → EAS build → Play submit, and `fdroid-apk.yml` → APK →
+   F-Droid repo.
 
 Which version you get is decided entirely by the commit messages since the last release, so there is
 no version to bump by hand anywhere.
+
+**The app version comes from `package.json`, via `app.config.js`** — nothing syncs it. That matters
+for ordering: release-please bumps `package.json` *inside the release PR*, so the tagged tree is
+already correct. An earlier design kept a second copy in `app.json` and synced it in a step that ran
+*after* tagging, which meant every tagged tree built the previous version. The F-Droid index is what
+exposed it — an APK named `v1.2.0` publishing `<version>1.1.0</version>`.
 
 > **Do not switch this to manifest mode** (`release-please-config.json` +
 > `.release-please-manifest.json`). With a single package, the Merge plugin opens the release PR on a
 > component-less branch (`release-please--branches--main`) while the release step compares against
 > `getBranchComponent()`, which returns the `package.json` name and ignores `include-component-in-tag`.
 > They never match, so the PR merges and is **never tagged** — and the workflow still reports success.
-> Monorepos don't hit this because with 2+ packages the component check is skipped. This bit us once;
-> `app.json` is synced by `scripts/sync-app-version.js` instead of by `extra-files`.
+> Monorepos don't hit this because with 2+ packages the component check is skipped. This bit us once.
+> The `extra-files` app.json bump it would have given us is unnecessary anyway — `app.config.js`
+> derives the version from `package.json`.
 
 ### Play release notes — `scripts/play-notes.js`
 
@@ -191,7 +197,7 @@ sentence in half. Preview it any time with `pnpm changelog:play:check`.
 
 Because of that, generation is never automatic:
 - **release-please.yml** only *prints* the suggestion next to the current text, so you can see what
-  the changelog would produce without it replacing curated copy. It does still sync `app.json`.
+  the changelog would produce without it replacing curated copy.
 - **release.yml** pushes whatever is committed to Play via `fastlane android release_notes`, *after*
   the submit —
   `supply` attaches notes to a release that already exists on the track, so running it earlier fails

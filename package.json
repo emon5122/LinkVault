@@ -84,9 +84,7 @@
     "test:ci": "jest --ci --coverage",
     "assets:generate": "node scripts/gen-store-assets.mjs",
     "changelog:play": "node scripts/play-notes.js",
-    "changelog:play:check": "node scripts/play-notes.js --check",
-    "version:sync": "node scripts/sync-app-version.js",
-    "version:check": "node scripts/sync-app-version.js --check"
+    "changelog:play:check": "node scripts/play-notes.js --check"
   },
   "private": true
 }
