@@ -60,20 +60,33 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         run: node scripts/sync-app-version.js
 
-      # CHANGELOG.md is developer-facing Markdown; Play shows plain text capped at 500 characters.
-      - name: Sync Play release notes from CHANGELOG
+      # Play release notes are deliberately NOT regenerated here.
+      #
+      # scripts/play-notes.js converts whatever is in CHANGELOG.md, and a release is frequently all
+      # `ci:` and `deps:` entries — accurate for a changelog, meaningless to someone reading the
+      # store listing. Doing it automatically would silently replace curated copy with commit
+      # subjects on every release, which is worse than letting it go stale.
+      #
+      # Regenerate deliberately instead: Actions -> Push Release Notes, with `regenerate` ticked,
+      # or `pnpm changelog:play` locally. Both let you read the result before it ships.
+      - name: Show suggested Play release notes
         if: ${{ steps.release.outputs.release_created }}
-        run: node scripts/play-notes.js
+        run: |
+          echo "Current notes (fastlane/metadata/.../default.txt):"
+          cat fastlane/metadata/android/en-US/changelogs/default.txt
+          echo
+          echo "What the changelog would generate — review before using:"
+          node scripts/play-notes.js --check || true
 
       - name: Commit release artifacts
         if: ${{ steps.release.outputs.release_created }}
         run: |
-          if git diff --quiet -- app.json fastlane/metadata; then
-            echo "app.json and Play release notes already up to date."
+          if git diff --quiet -- app.json; then
+            echo "app.json already matches package.json."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app.json fastlane/metadata/android/en-US/changelogs/default.txt
-          git commit -m "chore(release): sync app version and Play notes for ${{ steps.release.outputs.tag_name }}"
+          git add app.json
+          git commit -m "chore(release): sync app version for ${{ steps.release.outputs.tag_name }}"
           git push

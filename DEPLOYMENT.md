@@ -189,10 +189,11 @@ sentence in half. Preview it any time with `pnpm changelog:play:check`.
 > full of exactly that. For anything a user will read, write `default.txt` by hand and skip the
 > regeneration — `feat:` subjects are written for the changelog, not for the store.
 
-It runs in three places:
-- **release-please.yml** regenerates the file (alongside `scripts/sync-app-version.js`) and commits
-  both, so the repo always shows what Play will say.
-- **release.yml** pushes it to Play via `fastlane android release_notes`, *after* the submit —
+Because of that, generation is never automatic:
+- **release-please.yml** only *prints* the suggestion next to the current text, so you can see what
+  the changelog would produce without it replacing curated copy. It does still sync `app.json`.
+- **release.yml** pushes whatever is committed to Play via `fastlane android release_notes`, *after*
+  the submit —
   `supply` attaches notes to a release that already exists on the track, so running it earlier fails
   with `Could not find release for version code ''`.
 - **release-notes.yml** (Actions → *Push Release Notes* → pick a track) is the way back in when the
