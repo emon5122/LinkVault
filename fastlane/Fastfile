@@ -25,4 +25,29 @@ platform :android do
       validate_only: false
     )
   end
+
+  desc "Push the Play release notes for the release currently on a track"
+  # Complement to `metadata`, which deliberately skips changelogs. This lane does the opposite:
+  # changelogs only, no listing text, no graphics, no binary.
+  #
+  # It must run AFTER a build has been submitted, because supply attaches release notes to an
+  # existing release on the track — with nothing there it fails with
+  # "Could not find release for version code ''". The text comes from
+  # fastlane/metadata/android/en-US/changelogs/default.txt, which `scripts/play-notes.js`
+  # regenerates from CHANGELOG.md whenever release-please cuts a release.
+  lane :release_notes do |options|
+    supply(
+      package_name: "com.emon5122.linkvault",
+      json_key: ENV["SUPPLY_JSON_KEY"] || "google-service-account.json",
+      metadata_path: "./fastlane/metadata/android",
+      track: options[:track] || ENV["SUPPLY_TRACK"] || "internal",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: false,
+      validate_only: false
+    )
+  end
 end

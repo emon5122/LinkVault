@@ -76,6 +76,18 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | ---------------------------- | ----------------------------------------------------------- |
 | `EXPO_TOKEN`                 | the token from step 4                                       |
 | `GOOGLE_SERVICE_ACCOUNT_KEY` | the **entire contents** of the JSON file from step 3        |
+| `RELEASE_PLEASE_TOKEN`       | a PAT for release automation — see below                    |
+
+`RELEASE_PLEASE_TOKEN` must be a **personal access token**, not the built-in `GITHUB_TOKEN`. GitHub
+deliberately refuses to start new workflow runs from events created with `GITHUB_TOKEN`, so a tag
+pushed with it would never reach `release.yml` and nothing would ship.
+
+Create it at **Settings → Developer settings → Personal access tokens → Fine-grained tokens**, scoped
+to this repository with:
+- **Contents**: Read and write  (create commits, tags, and releases)
+- **Pull requests**: Read and write  (open and update the release PR)
+
+A classic token with the `repo` scope works too.
 
 ### 7. Enable GitHub Pages (for the privacy policy URL)
 Repo → **Settings → Pages → Source = "GitHub Actions"**. After the `pages` workflow runs, your
@@ -116,13 +128,64 @@ Builds a production AAB on EAS and submits it to a Google Play **track**. Three 
 Actions tab → **Release** → *Run workflow* → track = **`closed`**. Testers on your closed track get
 each build automatically. Repeat as needed during the 14 days.
 
-**After the gate is cleared** (or if your account is pre-Nov-2023 exempt):
+**After the gate is cleared** (or if your account is pre-Nov-2023 exempt), you don't tag by hand —
+`release-please` does it (see below). Tagging manually still works as an escape hatch:
 ```bash
-# Cut a release: bump the version in app.json if needed, then tag.
 git tag v1.0.0
 git push origin v1.0.0        # → builds + auto-submits to PRODUCTION
 ```
 Version codes auto-increment (`autoIncrement` + `appVersionSource: remote`).
+
+### Versioning & changelog — `.github/workflows/release-please.yml`
+
+Releases are cut from [Conventional Commits](https://www.conventionalcommits.org/). Write commits as
+`feat: …`, `fix: …`, `perf: …`, `chore: …`; a `feat!:` or a `BREAKING CHANGE:` footer forces a major
+bump. Everything downstream keys off that.
+
+The loop:
+
+1. Push a `feat:`/`fix:` commit to `main`.
+2. release-please opens (or updates) a **`chore(main): release x.y.z`** PR holding the version bump
+   and the accumulated changelog. It sits there as long as you keep merging work.
+3. Merge that PR when you want to ship. release-please then:
+   - tags `vX.Y.Z` and publishes the GitHub release,
+   - writes `CHANGELOG.md`,
+   - bumps `package.json` **and** `app.json` → `expo.version` (via `extra-files` in
+     `release-please-config.json` — Expo's user-facing version is not managed by EAS, only
+     `versionCode` is),
+   - regenerates the Play release notes (next section).
+4. The `vX.Y.Z` tag triggers `release.yml` → EAS build → Play submit.
+
+Which version you get is decided entirely by the commit messages since the last release, so there is
+no version to bump by hand anywhere.
+
+### Play release notes — `scripts/play-notes.js`
+
+`CHANGELOG.md` is Markdown with commit links; Play's "What's new" is plain text capped at **500
+characters**. The two can't be the same file, so the newest changelog section is converted into
+`fastlane/metadata/android/en-US/changelogs/default.txt`:
+
+```
+New
+• Offline reader with sentence-level highlights
+• Search: full-text search inside saved article text
+
+Fixes
+• Tab bar overlapping the Android navigation bar
+```
+
+Markdown links, `**bold**`, and release-please's trailing `([abc1234](…))` refs are stripped; if the
+result would exceed 500 characters, whole bullets are dropped from the end rather than cutting a
+sentence in half. Preview it any time with `pnpm changelog:play:check`.
+
+It runs in two places:
+- **release-please.yml** regenerates the file and commits it, so the repo always shows what Play
+  will say.
+- **release.yml** pushes it to Play via `fastlane android release_notes`, *after* the submit —
+  `supply` attaches notes to a release that already exists on the track, so running it earlier fails
+  with `Could not find release for version code ''`. That step is `continue-on-error` on purpose: if
+  Play hasn't surfaced the new release yet, the build has still shipped, and the notes can be
+  re-pushed with `fastlane android release_notes track:production`.
 
 > One-time in Play Console: create the **Closed testing** track (the default is named *Alpha*, which
 > maps to `track: "alpha"` in `eas.json`) and attach your tester Google Group.

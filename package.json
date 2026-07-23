@@ -82,7 +82,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage",
-    "assets:generate": "node scripts/gen-store-assets.mjs"
+    "assets:generate": "node scripts/gen-store-assets.mjs",
+    "changelog:play": "node scripts/play-notes.js",
+    "changelog:play:check": "node scripts/play-notes.js --check"
   },
   "private": true
 }

@@ -1,0 +1,75 @@
+name: release-please
+
+# Turns Conventional Commits on main into releases.
+#
+# On every push to main, release-please maintains a "chore(main): release x.y.z" PR that accumulates
+# the changelog and version bump. Merging that PR cuts the release: it tags `vX.Y.Z`, publishes the
+# GitHub release, and writes CHANGELOG.md.
+#
+# That tag is what drives shipping — `release.yml` triggers on `v*` and runs the EAS build + Play
+# submit. This only works because `token` below is a PAT: GitHub deliberately does not start new
+# workflow runs from events created with the default GITHUB_TOKEN, so a tag pushed with it would
+# silently never reach release.yml.
+#
+# Required repository secret:
+#   RELEASE_PLEASE_TOKEN – a fine-grained PAT on this repo with Contents: read/write and
+#                          Pull requests: read/write. (A classic PAT with `repo` also works.)
+#
+# Version bumping is configured in release-please-config.json — notably it keeps app.json's
+# expo.version in step with package.json, which is the version Google Play displays.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # Checked out before the action so the release-notes step below can read the CHANGELOG.md
+      # that the merged release PR just brought onto main. The PAT is needed for the push at the end.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          # `config-file`/`manifest-file` default to empty, not to the conventional filenames — a
+          # config file that isn't named here is simply never read. They carry `release-type: node`
+          # plus the app.json version bump, so naming them is what makes both take effect.
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Setup Node
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # CHANGELOG.md is developer-facing Markdown; Play shows plain text capped at 500 characters.
+      # This converts the newest section into that format so the store listing describes the release
+      # that just shipped instead of whatever was hand-written months ago.
+      - name: Sync Play release notes from CHANGELOG
+        if: ${{ steps.release.outputs.release_created }}
+        run: node scripts/play-notes.js
+
+      - name: Commit release notes
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          if git diff --quiet -- fastlane/metadata; then
+            echo "Play release notes already match the changelog; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add fastlane/metadata/android/en-US/changelogs/default.txt
+          git commit -m "chore(release): sync Play release notes for ${{ steps.release.outputs.tag_name }}"
+          git push

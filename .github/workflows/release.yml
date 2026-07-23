@@ -84,6 +84,27 @@ jobs:
             --non-interactive \
             --auto-submit-with-profile "${{ steps.track.outputs.name }}"
 
+      # Release notes are pushed after the submit, because supply attaches them to a release that
+      # already exists on the track. The text comes from the changelog that release-please generated
+      # (see scripts/play-notes.js).
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+
+      - name: Push release notes to Google Play
+        # Non-fatal on purpose: Play can take a little while to surface a freshly uploaded release,
+        # and a timing miss here must not fail a build that already shipped. The notes can be
+        # re-pushed any time with `fastlane android release_notes track:<track>`.
+        continue-on-error: true
+        env:
+          SUPPLY_JSON_KEY: google-service-account.json
+          SUPPLY_TRACK: ${{ steps.track.outputs.name }}
+        run: fastlane android release_notes
+
       - name: Clean up service account key
         if: always()
         run: rm -f google-service-account.json
