@@ -9,10 +9,16 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   CREATE_FOLDER_LINKS_TABLE,
   CREATE_FOLDERS_TABLE,
+  CREATE_HIGHLIGHTS_TABLE,
   CREATE_INDEXES,
   CREATE_LINK_TAGS_TABLE,
+  CREATE_LINKS_FTS,
+  CREATE_LINKS_FTS_TRIGGERS,
   CREATE_LINKS_TABLE,
   CREATE_TAGS_TABLE,
+  CREATE_V2_INDEXES,
+  REBUILD_LINKS_FTS,
+  V2_LINK_COLUMNS,
 } from './schema';
 
 interface Migration {
@@ -30,6 +36,30 @@ const MIGRATIONS: Migration[] = [
       await db.execAsync(CREATE_LINK_TAGS_TABLE);
       await db.execAsync(CREATE_FOLDER_LINKS_TABLE);
       for (const statement of CREATE_INDEXES) {
+        await db.execAsync(statement);
+      }
+    },
+  },
+  {
+    // Article archive (extracted content), link health, full-text search, and reader highlights.
+    version: 2,
+    up: async (db) => {
+      for (const statement of V2_LINK_COLUMNS) {
+        await db.execAsync(statement);
+      }
+      await db.execAsync(CREATE_HIGHLIGHTS_TABLE);
+
+      // The FTS table is external-content over `links`, so it must be created only after the
+      // `content` column exists — and the triggers only after the table.
+      await db.execAsync(CREATE_LINKS_FTS);
+      for (const statement of CREATE_LINKS_FTS_TRIGGERS) {
+        await db.execAsync(statement);
+      }
+      // Index the rows that predate the FTS table. 'rebuild' reads straight from `links`, so it
+      // stays correct no matter how large the existing library is.
+      await db.execAsync(REBUILD_LINKS_FTS);
+
+      for (const statement of CREATE_V2_INDEXES) {
         await db.execAsync(statement);
       }
     },

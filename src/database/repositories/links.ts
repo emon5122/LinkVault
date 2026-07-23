@@ -5,8 +5,10 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type {
+  ArticleUpdate,
   Folder,
   FolderRow,
+  HealthUpdate,
   Link,
   LinkListParams,
   LinkRow,
@@ -193,6 +195,7 @@ function matchedFields(link: Link, terms: string[]): string[] {
     { name: 'notes', value: link.notes },
     { name: 'siteName', value: link.siteName },
     { name: 'host', value: link.host },
+    { name: 'content', value: link.content },
   ];
   return fields
     .filter((f) => f.value && terms.some((t) => f.value!.toLowerCase().includes(t)))
@@ -353,6 +356,120 @@ async function bulkInsert(
   return { inserted, skipped, ids };
 }
 
+// ---------------------------------------------------------------------------
+// Article archive + link health
+// ---------------------------------------------------------------------------
+
+/**
+ * Store an extracted article body. `extractedAt` is stamped even when extraction produced nothing,
+ * so the background pass doesn't retry an unreadable page on every run.
+ */
+async function setArticle(id: number, article: ArticleUpdate | null): Promise<void> {
+  const db = getDatabase();
+  await db.runAsync(
+    `UPDATE links SET content = ?, excerpt = ?, byline = ?, wordCount = ?, extractedAt = ?
+     WHERE id = ?`,
+    article?.content ?? null,
+    article?.excerpt ?? null,
+    article?.byline ?? null,
+    article?.wordCount ?? null,
+    Date.now(),
+    id,
+  );
+}
+
+/** Record the outcome of a reachability check. Leaves `archiveUrl` alone unless one was found. */
+async function setHealth(id: number, health: HealthUpdate): Promise<void> {
+  const db = getDatabase();
+  const now = Date.now();
+  if (health.archiveUrl !== undefined) {
+    await db.runAsync(
+      'UPDATE links SET status = ?, statusCode = ?, checkedAt = ?, archiveUrl = ?, archivedAt = ? WHERE id = ?',
+      health.status,
+      health.statusCode,
+      now,
+      health.archiveUrl,
+      health.archiveUrl ? now : null,
+      id,
+    );
+    return;
+  }
+  await db.runAsync(
+    'UPDATE links SET status = ?, statusCode = ?, checkedAt = ? WHERE id = ?',
+    health.status,
+    health.statusCode,
+    now,
+    id,
+  );
+}
+
+/** Links that have never been through extraction, oldest first. */
+async function listNeedingExtraction(limit: number): Promise<Link[]> {
+  const db = getDatabase();
+  const rows = await db.getAllAsync<LinkRow>(
+    `SELECT * FROM links
+     WHERE extractedAt IS NULL AND archived = 0
+     ORDER BY createdAt DESC LIMIT ?`,
+    limit,
+  );
+  return rows.map(rowToLink);
+}
+
+/** Links whose health check is missing or older than `staleMs`, least-recently-checked first. */
+async function listNeedingHealthCheck(limit: number, staleMs: number): Promise<Link[]> {
+  const db = getDatabase();
+  const rows = await db.getAllAsync<LinkRow>(
+    `SELECT * FROM links
+     WHERE checkedAt IS NULL OR checkedAt < ?
+     ORDER BY checkedAt IS NOT NULL, checkedAt ASC, id ASC
+     LIMIT ?`,
+    Date.now() - staleMs,
+    limit,
+  );
+  return rows.map(rowToLink);
+}
+
+/** Counts backing the health summary row in Settings. */
+async function healthSummary(): Promise<{
+  total: number;
+  checked: number;
+  broken: number;
+  readable: number;
+}> {
+  const db = getDatabase();
+  const row = await db.getFirstAsync<{
+    total: number;
+    checked: number;
+    broken: number;
+    readable: number;
+  }>(
+    `SELECT COUNT(*) AS total,
+            SUM(CASE WHEN checkedAt IS NOT NULL THEN 1 ELSE 0 END) AS checked,
+            SUM(CASE WHEN status IN ('broken', 'unknown') THEN 1 ELSE 0 END) AS broken,
+            SUM(CASE WHEN content IS NOT NULL THEN 1 ELSE 0 END) AS readable
+     FROM links`,
+  );
+  return {
+    total: row?.total ?? 0,
+    checked: row?.checked ?? 0,
+    broken: row?.broken ?? 0,
+    readable: row?.readable ?? 0,
+  };
+}
+
+/** Every link in a folder, for folder sharing and export. */
+async function listByFolder(folderId: number): Promise<Link[]> {
+  const db = getDatabase();
+  const rows = await db.getAllAsync<LinkRow>(
+    `SELECT l.* FROM links l
+     JOIN folder_links fl ON fl.linkId = l.id
+     WHERE fl.folderId = ?
+     ORDER BY l.createdAt DESC, l.id DESC`,
+    folderId,
+  );
+  return rows.map(rowToLink);
+}
+
 export const linksRepository = {
   create,
   update,
@@ -370,4 +487,10 @@ export const linksRepository = {
   findByNormalizedUrl,
   getAll,
   bulkInsert,
+  setArticle,
+  setHealth,
+  listNeedingExtraction,
+  listNeedingHealthCheck,
+  healthSummary,
+  listByFolder,
 };

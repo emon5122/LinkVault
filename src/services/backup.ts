@@ -11,13 +11,14 @@ import { BACKUP_FORMAT_VERSION } from '@/constants/config';
 import {
   foldersRepository,
   getDatabase,
+  highlightsRepository,
   linksRepository,
   relationsRepository,
   tagsRepository,
   type FolderLinkRow,
   type LinkTagRow,
 } from '@/database';
-import type { Folder, Link, Tag } from '@/types';
+import type { Folder, Highlight, Link, Tag } from '@/types';
 
 import { fileTimestamp, readFileText, shareFile, writeCacheFile } from './files';
 
@@ -32,24 +33,27 @@ export interface BackupFile {
     tags: Tag[];
     linkTags: LinkTagRow[];
     folderLinks: FolderLinkRow[];
+    /** Added in format v2. Absent from v1 files. */
+    highlights?: Highlight[];
   };
 }
 
 /** Assemble an in-memory snapshot of the whole database. */
 export async function buildBackup(createdAt = Date.now()): Promise<BackupFile> {
-  const [links, folders, tags, linkTags, folderLinks] = await Promise.all([
+  const [links, folders, tags, linkTags, folderLinks, highlights] = await Promise.all([
     linksRepository.getAll(),
     foldersRepository.getAll(),
     tagsRepository.getAll(),
     relationsRepository.getAllLinkTags(),
     relationsRepository.getAllFolderLinks(),
+    highlightsRepository.getAll(),
   ]);
   return {
     app: 'LinkVault',
     type: 'backup',
     version: BACKUP_FORMAT_VERSION,
     createdAt,
-    data: { links, folders, tags, linkTags, folderLinks },
+    data: { links, folders, tags, linkTags, folderLinks, highlights },
   };
 }
 
@@ -74,12 +78,16 @@ export function validateBackup(raw: unknown): BackupFile {
 
 const bit = (value: boolean): number => (value ? 1 : 0);
 
-/** Replace all data with a validated backup. Preserves primary keys and relations. */
-export async function restoreBackup(backup: BackupFile): Promise<{
+/** Counts reported after a restore, for the confirmation message. */
+export interface RestoreResult {
   links: number;
   folders: number;
   tags: number;
-}> {
+  highlights: number;
+}
+
+/** Replace all data with a validated backup. Preserves primary keys and relations. */
+export async function restoreBackup(backup: BackupFile): Promise<RestoreResult> {
   const db = getDatabase();
 
   await db.withTransactionAsync(async () => {
@@ -87,6 +95,7 @@ export async function restoreBackup(backup: BackupFile): Promise<{
     // any insert below fails on a malformed backup, the whole thing rolls back and the user keeps
     // their original library instead of being left with an empty database.
     await db.execAsync(`
+      DELETE FROM highlights;
       DELETE FROM link_tags;
       DELETE FROM folder_links;
       DELETE FROM links;
@@ -112,8 +121,10 @@ export async function restoreBackup(backup: BackupFile): Promise<{
       await db.runAsync(
         `INSERT INTO links
           (id, title, url, normalizedUrl, host, description, image, favicon, siteName, notes,
-           favorite, archived, readLater, pinned, readAt, lastOpenedAt, visitCount, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           favorite, archived, readLater, pinned, readAt, lastOpenedAt, visitCount, createdAt, updatedAt,
+           content, excerpt, byline, wordCount, extractedAt, status, statusCode, checkedAt,
+           archiveUrl, archivedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           l.id,
           l.title,
@@ -134,6 +145,18 @@ export async function restoreBackup(backup: BackupFile): Promise<{
           l.visitCount,
           l.createdAt,
           l.updatedAt,
+          // v2 columns. A v1 backup has none of these, so coalesce — restoring an older file must
+          // succeed with empty article/health data rather than fail on undefined bindings.
+          l.content ?? null,
+          l.excerpt ?? null,
+          l.byline ?? null,
+          l.wordCount ?? null,
+          l.extractedAt ?? null,
+          l.status ?? null,
+          l.statusCode ?? null,
+          l.checkedAt ?? null,
+          l.archiveUrl ?? null,
+          l.archivedAt ?? null,
         ],
       );
     }
@@ -149,12 +172,32 @@ export async function restoreBackup(backup: BackupFile): Promise<{
         fl.linkId,
       ]);
     }
+    // Highlights arrived in format v2; a v1 file simply has none to restore.
+    for (const h of backup.data.highlights ?? []) {
+      await db.runAsync(
+        `INSERT INTO highlights
+          (id, linkId, text, note, color, blockIndex, startOffset, endOffset, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          h.id,
+          h.linkId,
+          h.text,
+          h.note ?? null,
+          h.color,
+          h.blockIndex,
+          h.startOffset,
+          h.endOffset,
+          h.createdAt,
+        ],
+      );
+    }
   });
 
   return {
     links: backup.data.links.length,
     folders: backup.data.folders.length,
     tags: backup.data.tags.length,
+    highlights: backup.data.highlights?.length ?? 0,
   };
 }
 
@@ -170,11 +213,7 @@ export async function createBackup(): Promise<{ uri: string; shared: boolean }> 
 }
 
 /** Prompt for a backup file and restore it. Returns null if the user cancelled. */
-export async function pickAndRestoreBackup(): Promise<{
-  links: number;
-  folders: number;
-  tags: number;
-} | null> {
+export async function pickAndRestoreBackup(): Promise<RestoreResult | null> {
   const result = await DocumentPicker.getDocumentAsync({
     type: ['application/json', 'text/plain', '*/*'],
     copyToCacheDirectory: true,

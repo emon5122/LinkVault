@@ -12,17 +12,52 @@
  * fully-working save-from-anywhere paths.
  */
 import { APP_LINK_HOST } from '@/constants/config';
-import { isValidUrl, tryParseUrl } from '@/utils/url';
+import { isValidUrl, normalizeUrl, tryParseUrl } from '@/utils/url';
 
 export type IncomingIntent =
   | { type: 'add'; url: string }
   | { type: 'openLink'; id: number }
   | null;
 
+/**
+ * Trailing characters that are almost never part of a URL but frequently follow one in prose —
+ * sentence punctuation, and closing brackets from Markdown/parenthetical wrapping.
+ */
+const TRAILING_PUNCTUATION = /[.,;:!?)\]}'"»›]+$/;
+
+const URL_RE = /https?:\/\/[^\s"'<>()[\]]+/gi;
+
+/** Strip prose punctuation that a naive URL match swallowed. */
+function trimUrl(candidate: string): string {
+  return candidate.replace(TRAILING_PUNCTUATION, '');
+}
+
 /** Pull the first http(s) URL out of arbitrary shared text (for ACTION_SEND payloads). */
 export function extractFirstUrl(text: string): string | null {
-  const match = text.match(/https?:\/\/[^\s"'<>]+/i);
-  return match && isValidUrl(match[0]) ? match[0] : null;
+  return extractAllUrls(text)[0] ?? null;
+}
+
+/**
+ * Pull every distinct http(s) URL out of arbitrary text, in order.
+ *
+ * This is what turns a pasted or shared *list* into something importable — a WhatsApp message, a
+ * Notion page, an email. Duplicates collapse on canonical form so the same link written two ways
+ * ("example.com/a" and "example.com/a?utm_source=x") only lands once.
+ */
+export function extractAllUrls(text: string): string[] {
+  if (!text) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  for (const match of text.matchAll(URL_RE)) {
+    const url = trimUrl(match[0]);
+    if (!isValidUrl(url)) continue;
+    const key = normalizeUrl(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(url);
+  }
+  return out;
 }
 
 /** Interpret an incoming deep link into an app intent, or null if it isn't actionable. */
@@ -39,7 +74,14 @@ export function parseIncomingUrl(incoming: string): IncomingIntent {
   }
 
   // Normalize `linkvault://add` (host=add) and `https://linkvault.app/add` (path=/add).
-  const segments = [url.hostname, ...url.pathname.split('/')].filter(Boolean);
+  //
+  // The two forms put the action in different places: under the custom scheme the "host" IS the
+  // action, while under https the host is the domain and the action is the first path segment.
+  // Treating the https host as a segment would make the action "linkvault.app" and match nothing.
+  const segments = [
+    ...(url.protocol === 'linkvault:' ? [url.hostname] : []),
+    ...url.pathname.split('/'),
+  ].filter(Boolean);
   const action = segments[0];
 
   if (action === 'add') {

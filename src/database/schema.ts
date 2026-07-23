@@ -61,6 +61,96 @@ CREATE TABLE IF NOT EXISTS folder_links (
   PRIMARY KEY (folderId, linkId)
 );`;
 
+/**
+ * Columns added in schema v2 for the article archive and link-health features.
+ *
+ * `content` holds the extracted article body in the line-based block format produced by
+ * `services/readability` — plain text per line, so the FTS tokenizer indexes real words rather than
+ * markup. `status`/`checkedAt` back the health checker; `archiveUrl` caches a Wayback snapshot so a
+ * dead link still resolves to something readable.
+ */
+export const V2_LINK_COLUMNS = [
+  "ALTER TABLE links ADD COLUMN content TEXT;",
+  "ALTER TABLE links ADD COLUMN excerpt TEXT;",
+  "ALTER TABLE links ADD COLUMN byline TEXT;",
+  "ALTER TABLE links ADD COLUMN wordCount INTEGER;",
+  "ALTER TABLE links ADD COLUMN extractedAt INTEGER;",
+  "ALTER TABLE links ADD COLUMN status TEXT;",
+  "ALTER TABLE links ADD COLUMN statusCode INTEGER;",
+  "ALTER TABLE links ADD COLUMN checkedAt INTEGER;",
+  "ALTER TABLE links ADD COLUMN archiveUrl TEXT;",
+  "ALTER TABLE links ADD COLUMN archivedAt INTEGER;",
+];
+
+/**
+ * Sentence-level highlights captured in the offline reader.
+ *
+ * A highlight is anchored by `(blockIndex, startOffset, endOffset)` into the stored `content`, which
+ * is stable because extraction is deterministic — re-extracting the same HTML yields the same
+ * blocks. `text` is denormalized so a highlight stays readable even if re-extraction shifts things.
+ */
+export const CREATE_HIGHLIGHTS_TABLE = `
+CREATE TABLE IF NOT EXISTS highlights (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  linkId      INTEGER NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+  text        TEXT    NOT NULL,
+  note        TEXT,
+  color       TEXT    NOT NULL DEFAULT 'yellow',
+  blockIndex  INTEGER NOT NULL DEFAULT 0,
+  startOffset INTEGER NOT NULL DEFAULT 0,
+  endOffset   INTEGER NOT NULL DEFAULT 0,
+  createdAt   INTEGER NOT NULL
+);`;
+
+/** FTS5 columns, in the order the virtual table and its sync triggers declare them. */
+const FTS_COLUMNS = ['title', 'url', 'description', 'notes', 'siteName', 'host', 'content'] as const;
+
+const ftsColumnList = FTS_COLUMNS.join(', ');
+const ftsValues = (prefix: 'new' | 'old') => FTS_COLUMNS.map((c) => `${prefix}.${c}`).join(', ');
+
+/**
+ * Full-text index over the links table, including extracted article bodies.
+ *
+ * Declared as an external-content table (`content='links'`) so the text is not duplicated on disk —
+ * FTS5 stores only the inverted index and reads column values back from `links` by rowid. That makes
+ * the sync triggers below mandatory: without them the index silently drifts from the table.
+ */
+export const CREATE_LINKS_FTS = `
+CREATE VIRTUAL TABLE IF NOT EXISTS links_fts USING fts5(
+  ${ftsColumnList},
+  content='links',
+  content_rowid='id',
+  tokenize='unicode61 remove_diacritics 2'
+);`;
+
+export const CREATE_LINKS_FTS_TRIGGERS = [
+  `CREATE TRIGGER IF NOT EXISTS links_fts_ai AFTER INSERT ON links BEGIN
+     INSERT INTO links_fts(rowid, ${ftsColumnList}) VALUES (new.id, ${ftsValues('new')});
+   END;`,
+  `CREATE TRIGGER IF NOT EXISTS links_fts_ad AFTER DELETE ON links BEGIN
+     INSERT INTO links_fts(links_fts, rowid, ${ftsColumnList})
+     VALUES('delete', old.id, ${ftsValues('old')});
+   END;`,
+  // Scoped with `UPDATE OF` so bookkeeping writes (visitCount, lastOpenedAt, flag toggles) don't
+  // pay for a needless index delete+insert on every tap.
+  `CREATE TRIGGER IF NOT EXISTS links_fts_au
+   AFTER UPDATE OF ${ftsColumnList} ON links BEGIN
+     INSERT INTO links_fts(links_fts, rowid, ${ftsColumnList})
+     VALUES('delete', old.id, ${ftsValues('old')});
+     INSERT INTO links_fts(rowid, ${ftsColumnList}) VALUES (new.id, ${ftsValues('new')});
+   END;`,
+];
+
+/** Backfill the index for rows that existed before the FTS table did. */
+export const REBUILD_LINKS_FTS = `INSERT INTO links_fts(links_fts) VALUES('rebuild');`;
+
+export const CREATE_V2_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_links_status      ON links(status);',
+  'CREATE INDEX IF NOT EXISTS idx_links_checkedAt   ON links(checkedAt);',
+  'CREATE INDEX IF NOT EXISTS idx_links_extractedAt ON links(extractedAt);',
+  'CREATE INDEX IF NOT EXISTS idx_highlights_linkId ON highlights(linkId);',
+];
+
 export const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_links_createdAt    ON links(createdAt DESC);',
   'CREATE INDEX IF NOT EXISTS idx_links_updatedAt    ON links(updatedAt DESC);',

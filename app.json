@@ -75,7 +75,20 @@
           "experimentalLauncherActivity": true
         }
       ],
-      "expo-share-intent"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "LinkVault uses the camera only to scan folder QR codes. Nothing is recorded or uploaded.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": ["text/*"],
+          "androidMultiIntentFilters": ["text/*"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,5 +1,17 @@
 import { useRouter } from 'expo-router';
-import { Archive, Clock, Inbox, Pin, Plus, Star, Tag as TagIcon } from 'lucide-react-native';
+import {
+  Archive,
+  BookOpenText,
+  Clock,
+  Highlighter,
+  Inbox,
+  Pin,
+  Plus,
+  QrCode,
+  Star,
+  Tag as TagIcon,
+  Unlink,
+} from 'lucide-react-native';
 import { ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
@@ -14,7 +26,12 @@ import {
   SectionHeader,
   Text,
 } from '@/components/ui';
-import { useFoldersWithCounts, useLibraryStats, useTagsWithCounts } from '@/hooks';
+import {
+  useFoldersWithCounts,
+  useHealthSummary,
+  useLibraryStats,
+  useTagsWithCounts,
+} from '@/hooks';
 import { riseIn } from '@/utils/motion';
 
 export default function LibraryScreen() {
@@ -22,6 +39,7 @@ export default function LibraryScreen() {
   const stats = useLibraryStats();
   const folders = useFoldersWithCounts();
   const tags = useTagsWithCounts();
+  const health = useHealthSummary();
   const s = stats.data;
 
   return (
@@ -78,8 +96,44 @@ export default function LibraryScreen() {
           </ListGroup>
         </Animated.View>
 
+        {/* Reading + link health */}
+        <Animated.View entering={riseIn(1)} className="mt-6 px-4">
+          <SectionHeader title="Reading" className="pb-3" />
+          <ListGroup>
+            <ListRow
+              icon={BookOpenText}
+              iconColor="#0891b2"
+              title="Saved offline"
+              subtitle="Articles stored on this device"
+              value={health.data ? String(health.data.readable) : undefined}
+              onPress={() => router.push('/readable')}
+            />
+            <ListRow
+              icon={Highlighter}
+              iconColor="#ca8a04"
+              title="Highlights"
+              subtitle="Passages you marked while reading"
+              onPress={() => router.push('/highlights')}
+            />
+            <ListRow
+              icon={Unlink}
+              iconColor="#dc2626"
+              title="Needs attention"
+              subtitle="Broken or unverified links"
+              value={health.data ? String(health.data.broken) : undefined}
+              onPress={() => router.push('/broken')}
+            />
+            <ListRow
+              icon={QrCode}
+              title="Scan a folder code"
+              subtitle="Receive a folder from a nearby device"
+              onPress={() => router.push('/scan')}
+            />
+          </ListGroup>
+        </Animated.View>
+
         {/* Folders */}
-        <Animated.View entering={riseIn(1)} className="mt-6">
+        <Animated.View entering={riseIn(2)} className="mt-6">
           <SectionHeader
             title="Folders"
             actionLabel="New"
@@ -109,7 +163,7 @@ export default function LibraryScreen() {
         </Animated.View>
 
         {/* Tags */}
-        <Animated.View entering={riseIn(2)} className="mt-6">
+        <Animated.View entering={riseIn(3)} className="mt-6">
           <SectionHeader
             title="Tags"
             actionLabel="Manage"

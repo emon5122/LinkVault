@@ -12,6 +12,15 @@ export type SqlBool = 0 | 1;
 // Link
 // ---------------------------------------------------------------------------
 
+/**
+ * Result of the most recent reachability check.
+ *
+ * `unknown` means the request itself failed (offline, DNS, TLS, timeout) rather than the server
+ * answering with an error — it is deliberately distinct from `broken` so a flaky network doesn't
+ * mark a healthy library as rotten.
+ */
+export type LinkStatus = 'ok' | 'redirected' | 'broken' | 'unknown';
+
 export interface LinkRow {
   id: number;
   title: string;
@@ -32,6 +41,16 @@ export interface LinkRow {
   visitCount: number;
   createdAt: number;
   updatedAt: number;
+  content: string | null;
+  excerpt: string | null;
+  byline: string | null;
+  wordCount: number | null;
+  extractedAt: number | null;
+  status: LinkStatus | null;
+  statusCode: number | null;
+  checkedAt: number | null;
+  archiveUrl: string | null;
+  archivedAt: number | null;
 }
 
 export interface Link {
@@ -54,6 +73,61 @@ export interface Link {
   visitCount: number;
   createdAt: number;
   updatedAt: number;
+  /** Extracted article body in the reader's line-based block format, or null if not extracted. */
+  content: string | null;
+  excerpt: string | null;
+  byline: string | null;
+  wordCount: number | null;
+  extractedAt: number | null;
+  status: LinkStatus | null;
+  statusCode: number | null;
+  checkedAt: number | null;
+  /** Wayback Machine snapshot cached by the health checker, used when the original is dead. */
+  archiveUrl: string | null;
+  archivedAt: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Highlight
+// ---------------------------------------------------------------------------
+
+export interface HighlightRow {
+  id: number;
+  linkId: number;
+  text: string;
+  note: string | null;
+  color: string;
+  blockIndex: number;
+  startOffset: number;
+  endOffset: number;
+  createdAt: number;
+}
+
+export interface Highlight {
+  id: number;
+  linkId: number;
+  text: string;
+  note: string | null;
+  color: string;
+  blockIndex: number;
+  startOffset: number;
+  endOffset: number;
+  createdAt: number;
+}
+
+export interface NewHighlightInput {
+  linkId: number;
+  text: string;
+  note?: string | null;
+  color?: string;
+  blockIndex: number;
+  startOffset: number;
+  endOffset: number;
+}
+
+/** A highlight joined with the link it belongs to, for the cross-library highlights view. */
+export interface HighlightWithLink extends Highlight {
+  link: Link;
 }
 
 /** A link joined with its folder + tag relations, used by detail/list views. */
@@ -93,6 +167,21 @@ export interface UpdateLinkInput {
   pinned?: boolean;
   folderIds?: number[];
   tagIds?: number[];
+}
+
+/** Extracted article body written by the reader pipeline. */
+export interface ArticleUpdate {
+  content: string | null;
+  excerpt: string | null;
+  byline: string | null;
+  wordCount: number | null;
+}
+
+/** Outcome of a reachability check, written by the health service. */
+export interface HealthUpdate {
+  status: LinkStatus;
+  statusCode: number | null;
+  archiveUrl?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +261,11 @@ export type LinkScope =
   | { type: 'recentlyOpened' }
   | { type: 'folder'; folderId: number }
   | { type: 'tag'; tagId: number }
-  | { type: 'search'; query: string };
+  | { type: 'search'; query: string }
+  /** Links whose last health check found them unreachable. */
+  | { type: 'broken' }
+  /** Links with an extracted article body — the offline-readable subset. */
+  | { type: 'readable' };
 
 export type LinkSort =
   | 'createdDesc'

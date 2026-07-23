@@ -12,11 +12,12 @@ import { foldersRepository, linksRepository, relationsRepository, tagsRepository
 import type { Link, NewLinkInput } from '@/types';
 import { parseCsvRecords, toCsv } from '@/utils/csv';
 import { escapeMarkdown } from '@/utils/markdown';
-import { isValidUrl } from '@/utils/url';
+import { isValidUrl, normalizeUrl } from '@/utils/url';
 
 import { fileTimestamp, readFileText, shareFile, writeCacheFile } from './files';
+import { extractAllUrls } from './linking';
 
-export type ImportFormat = 'csv' | 'json' | 'html';
+export type ImportFormat = 'csv' | 'json' | 'html' | 'text';
 export type ExportFormat = 'csv' | 'json' | 'markdown';
 
 /** A link parsed out of an import file, before folders/tags are resolved to ids. */
@@ -156,6 +157,86 @@ export function parseHtmlBookmarks(html: string): ParsedLink[] {
   return links;
 }
 
+/** Leading list decoration: "1.", "12)", "-", "*", "•". */
+const LIST_MARKER_RE = /^\s*(?:[-*•‣▪]|\d{1,3}[.)])\s+/;
+
+/** `[Title](https://…)` — the shape LinkVault's own Markdown export emits. */
+const MARKDOWN_LINK_RE = /\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/gi;
+
+/** Separators between a title and a URL on one line: "Title — https://…", "Title: https://…". */
+const TITLE_SEPARATOR_RE = /\s*[–—:·|]\s*$/;
+
+function cleanTitle(raw: string): string | undefined {
+  const title = raw
+    .replace(LIST_MARKER_RE, '')
+    .replace(TITLE_SEPARATOR_RE, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // A "title" that is itself a URL, or a lone piece of punctuation, is noise.
+  if (!title || title.length < 2 || /^https?:\/\//i.test(title)) return undefined;
+  return title;
+}
+
+/**
+ * Parse a free-form block of text into links.
+ *
+ * This is the receiving half of folder sharing: a list pasted or shared from *anywhere* — WhatsApp,
+ * a notes app, an email — becomes importable without either side agreeing on a format. Titles are
+ * recovered opportunistically from Markdown link syntax, from text preceding the URL on the same
+ * line, or from the line above a bare URL; when none of that works the URL stands alone and the
+ * normal metadata fetch fills in the title later.
+ */
+export function parseTextLinks(text: string): ParsedLink[] {
+  if (!text?.trim()) return [];
+
+  const links: ParsedLink[] = [];
+  const seen = new Set<string>();
+
+  const push = (url: string, title?: string) => {
+    if (!isValidUrl(url)) return;
+    const key = normalizeUrl(url);
+    if (seen.has(key)) return;
+    seen.add(key);
+    links.push({ url, title, description: null, notes: null, tags: [], folders: [] });
+  };
+
+  // Markdown links first — they carry an explicit title, and consuming them here keeps the
+  // line scanner below from re-reading the same URL without one.
+  const consumed = new Set<string>();
+  for (const match of text.matchAll(MARKDOWN_LINK_RE)) {
+    const [, label, url] = match;
+    consumed.add(url);
+    push(url, cleanTitle(label));
+  }
+
+  let pendingTitle: string | undefined;
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) {
+      pendingTitle = undefined;
+      continue;
+    }
+
+    const urls = extractAllUrls(line).filter((u) => !consumed.has(u));
+    if (urls.length === 0) {
+      pendingTitle = cleanTitle(line);
+      continue;
+    }
+
+    // Text before the first URL on this line beats a title carried over from the line above.
+    const firstIndex = line.indexOf(urls[0]);
+    const inlineTitle = firstIndex > 0 ? cleanTitle(line.slice(0, firstIndex)) : undefined;
+
+    urls.forEach((url, index) => {
+      // Only the first URL on a line can claim that line's title; the rest stand alone.
+      push(url, index === 0 ? (inlineTitle ?? pendingTitle) : undefined);
+    });
+    pendingTitle = undefined;
+  }
+
+  return links;
+}
+
 function parseByFormat(text: string, format: ImportFormat): ParsedLink[] {
   switch (format) {
     case 'csv':
@@ -164,6 +245,8 @@ function parseByFormat(text: string, format: ImportFormat): ParsedLink[] {
       return parseJsonLinks(text);
     case 'html':
       return parseHtmlBookmarks(text);
+    case 'text':
+      return parseTextLinks(text);
   }
 }
 
@@ -171,10 +254,25 @@ function parseByFormat(text: string, format: ImportFormat): ParsedLink[] {
 // Persistence
 // ---------------------------------------------------------------------------
 
-/** Resolve folder/tag names to ids (creating as needed) and bulk-insert, skipping duplicates. */
-export async function persistParsedLinks(parsed: ParsedLink[]): Promise<ImportResult> {
+/**
+ * Resolve folder/tag names to ids (creating as needed) and bulk-insert, skipping duplicates.
+ *
+ * `intoFolder` files every parsed link into one additional folder by name, which is how an imported
+ * shared list lands together instead of scattering into the library.
+ */
+export async function persistParsedLinks(
+  parsed: ParsedLink[],
+  options?: { intoFolder?: string },
+): Promise<ImportResult> {
   const folderIdByName = new Map<string, number>();
   const tagIdByName = new Map<string, number>();
+
+  const extraFolder = options?.intoFolder?.trim();
+  if (extraFolder) {
+    parsed = parsed.map((p) =>
+      p.folders.includes(extraFolder) ? p : { ...p, folders: [...p.folders, extraFolder] },
+    );
+  }
 
   const uniqueFolders = new Set(parsed.flatMap((p) => p.folders));
   const uniqueTags = new Set(parsed.flatMap((p) => p.tags));
@@ -215,6 +313,7 @@ export async function importLinks(format: ImportFormat): Promise<ImportResult | 
     csv: ['text/csv', 'text/comma-separated-values', 'text/plain', '*/*'],
     json: ['application/json', 'text/plain', '*/*'],
     html: ['text/html', '*/*'],
+    text: ['text/plain', 'text/markdown', '*/*'],
   };
 
   const result = await DocumentPicker.getDocumentAsync({

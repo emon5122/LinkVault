@@ -21,6 +21,16 @@ export const queryKeys = {
     withCounts: ['tags', 'withCounts'] as const,
     detail: (id: number) => ['tags', 'detail', id] as const,
   },
+  highlights: {
+    root: ['highlights'] as const,
+    forLink: (linkId: number) => ['highlights', 'link', linkId] as const,
+    all: ['highlights', 'all'] as const,
+    count: (linkId: number) => ['highlights', 'count', linkId] as const,
+  },
+  health: {
+    root: ['health'] as const,
+    summary: ['health', 'summary'] as const,
+  },
   stats: ['stats'] as const,
   metadata: (url: string) => ['metadata', url] as const,
 } as const;

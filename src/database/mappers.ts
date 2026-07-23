@@ -1,5 +1,14 @@
 /** Convert raw SQLite rows (0/1 ints, nullable columns) into the richer domain models. */
-import type { Folder, FolderRow, Link, LinkRow, Tag, TagRow } from '@/types';
+import type {
+  Folder,
+  FolderRow,
+  Highlight,
+  HighlightRow,
+  Link,
+  LinkRow,
+  Tag,
+  TagRow,
+} from '@/types';
 
 const bool = (value: number): boolean => value === 1;
 
@@ -24,6 +33,32 @@ export function rowToLink(row: LinkRow): Link {
     visitCount: row.visitCount,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    // v2 columns. Rows written before the migration read back as null/undefined, so coalesce to
+    // null rather than trusting the driver to supply the column at all.
+    content: row.content ?? null,
+    excerpt: row.excerpt ?? null,
+    byline: row.byline ?? null,
+    wordCount: row.wordCount ?? null,
+    extractedAt: row.extractedAt ?? null,
+    status: row.status ?? null,
+    statusCode: row.statusCode ?? null,
+    checkedAt: row.checkedAt ?? null,
+    archiveUrl: row.archiveUrl ?? null,
+    archivedAt: row.archivedAt ?? null,
+  };
+}
+
+export function rowToHighlight(row: HighlightRow): Highlight {
+  return {
+    id: row.id,
+    linkId: row.linkId,
+    text: row.text,
+    note: row.note,
+    color: row.color,
+    blockIndex: row.blockIndex,
+    startOffset: row.startOffset,
+    endOffset: row.endOffset,
+    createdAt: row.createdAt,
   };
 }
 

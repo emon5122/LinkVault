@@ -25,6 +25,10 @@ export interface ReminderSettings {
   weeklyMinute: number;
 }
 
+/** Reader text sizes, as multipliers of the base body size. */
+export const READER_FONT_SCALES = [0.9, 1, 1.15, 1.35] as const;
+export type ReaderFontScale = (typeof READER_FONT_SCALES)[number];
+
 export interface SettingsState {
   theme: ThemePreference;
   openInApp: boolean;
@@ -34,6 +38,17 @@ export interface SettingsState {
   defaultSort: LinkSort;
   confirmBeforeDelete: boolean;
   reminders: ReminderSettings;
+  /** Fetch and store article text so links stay searchable and readable offline. */
+  autoExtractArticles: boolean;
+  /** Periodically re-check saved links for rot. */
+  autoCheckLinks: boolean;
+  readerFontScale: ReaderFontScale;
+  highlightColor: string;
+  /**
+   * Android package of the browser to render links with, or null for the system default.
+   * Ignored on iOS, which permits no substitute for Safari's engine.
+   */
+  browserPackage: string | null;
 
   setTheme: (theme: ThemePreference) => void;
   setOpenInApp: (value: boolean) => void;
@@ -43,6 +58,11 @@ export interface SettingsState {
   setDefaultSort: (sort: LinkSort) => void;
   setConfirmBeforeDelete: (value: boolean) => void;
   setReminders: (patch: Partial<ReminderSettings>) => void;
+  setAutoExtractArticles: (value: boolean) => void;
+  setAutoCheckLinks: (value: boolean) => void;
+  setReaderFontScale: (scale: ReaderFontScale) => void;
+  setHighlightColor: (color: string) => void;
+  setBrowserPackage: (packageName: string | null) => void;
 }
 
 export const DEFAULT_REMINDERS: ReminderSettings = {
@@ -66,6 +86,11 @@ export const useSettingsStore = create<SettingsState>()(
       defaultSort: 'createdDesc',
       confirmBeforeDelete: true,
       reminders: DEFAULT_REMINDERS,
+      autoExtractArticles: true,
+      autoCheckLinks: true,
+      readerFontScale: 1,
+      highlightColor: 'yellow',
+      browserPackage: null,
 
       setTheme: (theme) => set({ theme }),
       setOpenInApp: (openInApp) => set({ openInApp }),
@@ -75,6 +100,11 @@ export const useSettingsStore = create<SettingsState>()(
       setDefaultSort: (defaultSort) => set({ defaultSort }),
       setConfirmBeforeDelete: (confirmBeforeDelete) => set({ confirmBeforeDelete }),
       setReminders: (patch) => set((state) => ({ reminders: { ...state.reminders, ...patch } })),
+      setAutoExtractArticles: (autoExtractArticles) => set({ autoExtractArticles }),
+      setAutoCheckLinks: (autoCheckLinks) => set({ autoCheckLinks }),
+      setReaderFontScale: (readerFontScale) => set({ readerFontScale }),
+      setHighlightColor: (highlightColor) => set({ highlightColor }),
+      setBrowserPackage: (browserPackage) => set({ browserPackage }),
     }),
     {
       name: 'linkvault.settings',

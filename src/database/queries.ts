@@ -25,6 +25,25 @@ export function searchTerms(query: string): string[] {
     .filter((t) => t.length > 0);
 }
 
+/**
+ * Build an FTS5 prefix query for a single user term.
+ *
+ * The term is wrapped as a quoted phrase (doubling any embedded quote) so that characters FTS5
+ * treats as operators — `*`, `^`, `:`, `-`, `(`, `NEAR` — are matched literally instead of raising
+ * a syntax error on input the user just typed. The trailing `*` makes it a prefix match so results
+ * appear while typing.
+ *
+ * Returns null when the term contains nothing the tokenizer would index (e.g. `--`), in which case
+ * the caller falls back to LIKE for that term.
+ */
+export function ftsPrefixQuery(term: string): string | null {
+  // `unicode61` splits on everything that isn't a letter, digit, or combining mark. If nothing
+  // survives that, the quoted phrase would be empty and FTS5 would reject the whole query.
+  const indexable = term.replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ').trim();
+  if (!indexable) return null;
+  return `"${indexable.replace(/"/g, '""')}"*`;
+}
+
 const ORDER_BY: Record<LinkSort, string> = {
   createdDesc: 'l.createdAt DESC',
   createdAsc: 'l.createdAt ASC',
@@ -73,22 +92,48 @@ function buildConditions(scope: LinkScope, includeArchived: boolean): Conditions
       joins.push('JOIN link_tags lt ON lt.linkId = l.id AND lt.tagId = ?');
       args.push(scope.tagId);
       break;
+    case 'broken':
+      where.push("l.status IN ('broken', 'unknown')");
+      break;
+    case 'readable':
+      where.push('l.content IS NOT NULL');
+      break;
     case 'search': {
+      // Every term must match somewhere (AND across terms, OR across fields) — the same rule the
+      // original LIKE-only search used. What changed is *where* a term can match: the link's own
+      // text now goes through the FTS index, which also covers the extracted article body.
       for (const term of searchTerms(scope.query)) {
         const pattern = `%${escapeLike(term)}%`;
-        where.push(
-          `(l.title LIKE ? ESCAPE '\\'` +
-            ` OR l.url LIKE ? ESCAPE '\\'` +
-            ` OR l.description LIKE ? ESCAPE '\\'` +
-            ` OR l.notes LIKE ? ESCAPE '\\'` +
-            ` OR l.siteName LIKE ? ESCAPE '\\'` +
-            ` OR l.host LIKE ? ESCAPE '\\'` +
-            ` OR EXISTS (SELECT 1 FROM folder_links sfl JOIN folders sf ON sf.id = sfl.folderId` +
-            ` WHERE sfl.linkId = l.id AND sf.name LIKE ? ESCAPE '\\')` +
-            ` OR EXISTS (SELECT 1 FROM link_tags slt JOIN tags st ON st.id = slt.tagId` +
-            ` WHERE slt.linkId = l.id AND st.name LIKE ? ESCAPE '\\'))`,
+        const branches: string[] = [];
+
+        const fts = ftsPrefixQuery(term);
+        if (fts) {
+          branches.push(`l.id IN (SELECT rowid FROM links_fts WHERE links_fts MATCH ?)`);
+          args.push(fts);
+        } else {
+          // Nothing indexable in the term (pure punctuation) — FTS can't answer it, so scan the
+          // columns it would have covered.
+          branches.push(
+            `l.title LIKE ? ESCAPE '\\'`,
+            `l.url LIKE ? ESCAPE '\\'`,
+            `l.description LIKE ? ESCAPE '\\'`,
+            `l.notes LIKE ? ESCAPE '\\'`,
+            `l.siteName LIKE ? ESCAPE '\\'`,
+            `l.host LIKE ? ESCAPE '\\'`,
+          );
+          for (let k = 0; k < 6; k += 1) args.push(pattern);
+        }
+
+        // Folder and tag names live in other tables, so they stay outside the index.
+        branches.push(
+          `EXISTS (SELECT 1 FROM folder_links sfl JOIN folders sf ON sf.id = sfl.folderId` +
+            ` WHERE sfl.linkId = l.id AND sf.name LIKE ? ESCAPE '\\')`,
+          `EXISTS (SELECT 1 FROM link_tags slt JOIN tags st ON st.id = slt.tagId` +
+            ` WHERE slt.linkId = l.id AND st.name LIKE ? ESCAPE '\\')`,
         );
-        for (let k = 0; k < 8; k += 1) args.push(pattern);
+        args.push(pattern, pattern);
+
+        where.push(`(${branches.join(' OR ')})`);
       }
       break;
     }

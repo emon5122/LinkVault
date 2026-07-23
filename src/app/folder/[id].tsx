@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FolderOpen, Pencil, Trash2 } from 'lucide-react-native';
+import { FolderOpen, Pencil, Share2, Trash2 } from 'lucide-react-native';
 import { Alert } from 'react-native';
 
 import { IconButton } from '@/components/ui';
@@ -46,6 +46,13 @@ export default function FolderScreen() {
       emptyMessage="Add links to this folder from any link’s edit screen."
       headerRight={
         <>
+          <IconButton
+            icon={Share2}
+            accessibilityLabel="Share folder"
+            onPress={() =>
+              router.push({ pathname: '/folder-share', params: { id: String(folderId) } })
+            }
+          />
           <IconButton
             icon={Pencil}
             accessibilityLabel="Edit folder"

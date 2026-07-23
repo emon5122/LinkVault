@@ -1,9 +1,12 @@
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
 import {
   BookOpen,
+  BookOpenText,
   Bell,
   CalendarClock,
+  ClipboardPaste,
   DatabaseBackup,
   Download,
   FileJson,
@@ -14,12 +17,14 @@ import {
   Import,
   Info,
   List,
+  RefreshCw,
   ShieldCheck,
   Trash,
+  Unlink,
   Upload,
 } from 'lucide-react-native';
-import { useRef } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Platform, ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import {
@@ -33,9 +38,16 @@ import {
   Text,
 } from '@/components/ui';
 import type { ActionSheetItem } from '@/components/ui';
+import { browserDisplayName } from '@/constants/browsers';
 import { APP_TAGLINE } from '@/constants/config';
-import { useInvalidateLibrary } from '@/hooks';
-import { backupService, importExportService, notificationService } from '@/services';
+import {
+  useExtractionSweep,
+  useHealthSummary,
+  useHealthSweep,
+  useInvalidateLibrary,
+} from '@/hooks';
+import { backupService, browserService, importExportService, notificationService } from '@/services';
+import type { BrowserChoice } from '@/services/browser';
 import {
   useSettingsStore,
   type ReminderSettings,
@@ -46,11 +58,74 @@ import { haptics } from '@/utils/haptics';
 import { riseIn } from '@/utils/motion';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const invalidate = useInvalidateLibrary();
   const importSheet = useRef<BottomSheetModal>(null);
   const exportSheet = useRef<BottomSheetModal>(null);
 
   const settings = useSettingsStore();
+  const health = useHealthSummary();
+  const browserSheet = useRef<BottomSheetModal>(null);
+
+  // Which browsers this device can render a Custom Tab with. Queried once — installing a browser
+  // mid-session is rare enough not to warrant watching for it.
+  const [browsers, setBrowsers] = useState<BrowserChoice[]>([]);
+  useEffect(() => {
+    browserService.listBrowsers().then(setBrowsers);
+  }, []);
+
+  const selectedBrowser = browsers.find((b) => b.packageName === settings.browserPackage);
+  const browserLabel = settings.browserPackage
+    ? // A previously chosen browser that is no longer installed should say so rather than silently
+      // showing a stale name while links open somewhere else.
+      (selectedBrowser?.label ?? `${browserDisplayName(settings.browserPackage)} (not installed)`)
+    : 'System default';
+
+  const browserItems: ActionSheetItem[] = [
+    {
+      key: 'default',
+      label: settings.browserPackage === null ? '✓  System default' : 'System default',
+      icon: Globe,
+      onPress: () => settings.setBrowserPackage(null),
+    },
+    ...browsers.map((browser) => ({
+      key: browser.packageName,
+      label:
+        (settings.browserPackage === browser.packageName ? '✓  ' : '') +
+        browser.label +
+        (browser.isSystemDefault ? '  · default' : ''),
+      icon: Globe,
+      onPress: () => settings.setBrowserPackage(browser.packageName),
+    })),
+  ];
+  const healthSweep = useHealthSweep();
+  const extractionSweep = useExtractionSweep();
+
+  const runExtraction = async () => {
+    const result = await extractionSweep.mutateAsync();
+    haptics.success();
+    Alert.alert(
+      'Article text',
+      result.attempted === 0
+        ? 'Every link has already been through extraction.'
+        : `Saved ${result.extracted} of ${result.attempted} for offline reading.` +
+            (result.extracted < result.attempted
+              ? '\n\nPages that yield nothing are usually videos, apps, or login-walled.'
+              : ''),
+    );
+  };
+
+  const runHealthCheck = async () => {
+    const result = await healthSweep.mutateAsync();
+    haptics.success();
+    Alert.alert(
+      'Link check',
+      result.checked === 0
+        ? 'Every link has been checked recently.'
+        : `Checked ${result.checked} links. ${result.broken} appear broken.` +
+            (result.recovered > 0 ? `\n${result.recovered} have an archived copy available.` : ''),
+    );
+  };
 
   const reschedule = async (reminders: ReminderSettings) => {
     await notificationService.cancelAllReminders();
@@ -134,7 +209,8 @@ export default function SettingsScreen() {
               haptics.success();
               Alert.alert(
                 'Backup restored',
-                `${result.links} links, ${result.folders} folders, ${result.tags} tags.`,
+                `${result.links} links, ${result.folders} folders, ${result.tags} tags` +
+                  (result.highlights > 0 ? `, ${result.highlights} highlights.` : '.'),
               );
             } catch (error) {
               Alert.alert('Restore failed', error instanceof Error ? error.message : 'Invalid file.');
@@ -146,6 +222,12 @@ export default function SettingsScreen() {
   };
 
   const importItems: ActionSheetItem[] = [
+    {
+      key: 'shared',
+      label: 'Shared list or folder',
+      icon: ClipboardPaste,
+      onPress: () => router.push('/bulk-add'),
+    },
     { key: 'csv', label: 'CSV file', icon: FileText, onPress: () => runImport('csv') },
     { key: 'json', label: 'JSON file', icon: FileJson, onPress: () => runImport('json') },
     { key: 'html', label: 'Browser bookmarks (HTML)', icon: Globe, onPress: () => runImport('html') },
@@ -203,13 +285,33 @@ export default function SettingsScreen() {
             Behavior
           </Text>
           <ListGroup>
+            {/* These two settings interact, and the pairing is not obvious: "in app" is a stripped
+                Custom Tab (no tabs or address bar) rendered by the chosen browser's engine, while
+                turning it off launches that browser's real app. The subtitles say so out loud. */}
             <ListRow
               icon={BookOpen}
               title="Open links in app"
-              subtitle="Use the in-app browser"
+              subtitle={
+                settings.openInApp
+                  ? 'Quick preview — turn off to open the full browser app'
+                  : 'Opens the full browser app'
+              }
               showChevron={false}
               right={<Switch value={settings.openInApp} onValueChange={settings.setOpenInApp} />}
             />
+            {Platform.OS === 'android' ? (
+              <ListRow
+                icon={Globe}
+                title="Browser"
+                subtitle={
+                  settings.openInApp
+                    ? 'Engine behind the in-app preview'
+                    : 'Which browser app opens your links'
+                }
+                value={browserLabel}
+                onPress={() => browserSheet.current?.present()}
+              />
+            ) : null}
             <ListRow
               icon={Import}
               title="Clipboard monitoring"
@@ -277,8 +379,62 @@ export default function SettingsScreen() {
           </ListGroup>
         </Animated.View>
 
-        {/* Data */}
+        {/* Archive & link health */}
         <Animated.View entering={riseIn(3)} className="gap-3">
+          <Text variant="label" className="px-1">
+            Archive &amp; link health
+          </Text>
+          <ListGroup>
+            <ListRow
+              icon={BookOpenText}
+              title="Save articles offline"
+              subtitle="Store article text so links stay readable and searchable"
+              showChevron={false}
+              right={
+                <Switch
+                  value={settings.autoExtractArticles}
+                  onValueChange={settings.setAutoExtractArticles}
+                />
+              }
+            />
+            <ListRow
+              icon={ShieldCheck}
+              title="Check links for rot"
+              subtitle="Periodically re-check saved links"
+              showChevron={false}
+              right={
+                <Switch value={settings.autoCheckLinks} onValueChange={settings.setAutoCheckLinks} />
+              }
+            />
+            <ListRow
+              icon={RefreshCw}
+              title={extractionSweep.isPending ? 'Fetching articles…' : 'Fetch article text now'}
+              subtitle={
+                extractionSweep.progress
+                  ? `${extractionSweep.progress.done} of ${extractionSweep.progress.total}`
+                  : health.data
+                    ? `${health.data.readable} of ${health.data.total} saved offline`
+                    : undefined
+              }
+              onPress={extractionSweep.isPending ? undefined : () => runExtraction()}
+            />
+            <ListRow
+              icon={Unlink}
+              title={healthSweep.isPending ? 'Checking links…' : 'Check links now'}
+              subtitle={
+                healthSweep.progress
+                  ? `${healthSweep.progress.done} of ${healthSweep.progress.total}`
+                  : health.data
+                    ? `${health.data.checked} checked · ${health.data.broken} need attention`
+                    : undefined
+              }
+              onPress={healthSweep.isPending ? undefined : () => runHealthCheck()}
+            />
+          </ListGroup>
+        </Animated.View>
+
+        {/* Data */}
+        <Animated.View entering={riseIn(4)} className="gap-3">
           <Text variant="label" className="px-1">
             Data
           </Text>
@@ -286,7 +442,7 @@ export default function SettingsScreen() {
             <ListRow
               icon={Download}
               title="Import"
-              subtitle="CSV, JSON, or browser bookmarks"
+              subtitle="A shared list, CSV, JSON, or browser bookmarks"
               onPress={() => importSheet.current?.present()}
             />
             <ListRow
@@ -311,7 +467,7 @@ export default function SettingsScreen() {
         </Animated.View>
 
         {/* About */}
-        <Animated.View entering={riseIn(4)} className="gap-3">
+        <Animated.View entering={riseIn(5)} className="gap-3">
           <Text variant="label" className="px-1">
             About
           </Text>
@@ -335,6 +491,7 @@ export default function SettingsScreen() {
         </Animated.View>
       </ScrollView>
 
+      <ActionSheet ref={browserSheet} title="Open links with" items={browserItems} />
       <ActionSheet ref={importSheet} title="Import from" items={importItems} />
       <ActionSheet ref={exportSheet} title="Export as" items={exportItems} />
     </Screen>

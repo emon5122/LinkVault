@@ -31,7 +31,9 @@ import {
   useUpdateLink,
 } from '@/hooks';
 import { useTheme } from '@/providers/theme-provider';
+import { extractionService } from '@/services';
 import type { LinkMetadata } from '@/services';
+import { useSettingsStore } from '@/store';
 import { haptics } from '@/utils/haptics';
 import { ensureProtocol, extractHost, faviconUrlForHost, isValidUrl } from '@/utils/url';
 import { linkFormSchema, type LinkFormValues } from '@/utils/validation';
@@ -49,6 +51,7 @@ export default function AddLinkScreen() {
   const createLink = useCreateLink();
   const updateLink = useUpdateLink();
   const createTag = useCreateTag();
+  const autoExtract = useSettingsStore((s) => s.autoExtractArticles);
 
   const { control, handleSubmit, watch, setValue, reset, getValues } = useForm<LinkFormValues>({
     resolver: zodResolver(linkFormSchema),
@@ -173,7 +176,18 @@ export default function AddLinkScreen() {
     if (isEdit && editId != null) {
       updateLink.mutate({ id: editId, input }, { onSuccess: () => router.back() });
     } else {
-      createLink.mutate(input, { onSuccess: () => router.back() });
+      createLink.mutate(input, {
+        onSuccess: (created) => {
+          // Fetch the article body after the screen closes, not before — the save should feel
+          // instant, and a slow page must never hold up the user's navigation.
+          if (autoExtract && created) {
+            extractionService.extractForLink(created).catch(() => {
+              /* offline or unreadable — the background sweep will retry later */
+            });
+          }
+          router.back();
+        },
+      });
     }
   };
 

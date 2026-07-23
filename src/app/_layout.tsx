@@ -8,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ShareIntentProvider, useShareIntentContext } from 'expo-share-intent';
 import { useCallback, useEffect } from 'react';
 
+import { useBackgroundMaintenance } from '@/hooks';
 import { AppProviders, useTheme } from '@/providers';
 import { linkingService } from '@/services';
 
@@ -52,17 +53,45 @@ function useNotificationTaps(handle: (url: string | null) => void) {
   }, [response, handle]);
 }
 
-/** System share sheet (Android/iOS): open the Add screen pre-filled with the shared link. */
+/**
+ * System share sheet (Android/iOS).
+ *
+ * One URL goes straight to the Add form. *Several* URLs — a list pasted out of a group chat, a
+ * shared LinkVault folder, a newsletter — go to the bulk importer instead, which is what makes
+ * folder sharing work without either side agreeing on a format.
+ */
 function useShareToSave(handle: (url: string | null) => void) {
   const router = useRouter();
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
+
   useEffect(() => {
     if (!hasShareIntent) return;
-    const shared =
-      shareIntent.webUrl ??
-      (shareIntent.text ? linkingService.extractFirstUrl(shareIntent.text) : null);
-    if (shared) handle(shared);
-    else router.push('/add'); // shared something without a URL — still land on the form
+
+    // A shared file (a `.linkvault` bundle, an exported list) — hand the importer its URI to read.
+    const file = shareIntent.files?.[0];
+    if (file?.path) {
+      router.push({ pathname: '/bulk-add', params: { fileUri: file.path, source: 'a file' } });
+      resetShareIntent();
+      return;
+    }
+
+    if (shareIntent.webUrl) {
+      handle(shareIntent.webUrl);
+      resetShareIntent();
+      return;
+    }
+
+    const urls = shareIntent.text ? linkingService.extractAllUrls(shareIntent.text) : [];
+    if (urls.length > 1) {
+      router.push({
+        pathname: '/bulk-add',
+        params: { text: shareIntent.text as string, source: 'a shared message' },
+      });
+    } else if (urls.length === 1) {
+      handle(urls[0]);
+    } else {
+      router.push('/add'); // shared something without a URL — still land on the form
+    }
     resetShareIntent();
   }, [hasShareIntent, shareIntent, resetShareIntent, handle, router]);
 }
@@ -73,6 +102,7 @@ function RootStack() {
   useDeepLinks(handle);
   useNotificationTaps(handle);
   useShareToSave(handle);
+  useBackgroundMaintenance();
 
   return (
     <Stack
@@ -85,13 +115,23 @@ function RootStack() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="add" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="link/[id]" />
+      <Stack.Screen name="reader/[id]" />
       <Stack.Screen name="folder/[id]" />
       <Stack.Screen name="tag/[id]" />
       <Stack.Screen name="favorites" />
       <Stack.Screen name="read-later" />
       <Stack.Screen name="archive" />
       <Stack.Screen name="pinned" />
+      <Stack.Screen name="broken" />
+      <Stack.Screen name="readable" />
+      <Stack.Screen name="highlights" />
       <Stack.Screen name="tags" />
+      <Stack.Screen name="folder-share" options={{ presentation: 'modal' }} />
+      <Stack.Screen
+        name="bulk-add"
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

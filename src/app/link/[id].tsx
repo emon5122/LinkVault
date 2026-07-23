@@ -2,15 +2,20 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Archive,
   ArchiveRestore,
+  BookOpenText,
   Clock,
   Copy,
   ExternalLink,
   FileWarning,
+  History,
   MoreVertical,
   Pencil,
   Pin,
+  RefreshCw,
   Share2,
+  ShieldCheck,
   Star,
+  Unlink,
 } from 'lucide-react-native';
 import { ScrollView, View } from 'react-native';
 
@@ -28,10 +33,19 @@ import {
   Text,
 } from '@/components/ui';
 import { getFolderIcon } from '@/constants/icons';
-import { useLinkDetail, useRecordOpen, useSetLinkFlag } from '@/hooks';
+import {
+  useArchiveNow,
+  useCheckLink,
+  useHighlightCount,
+  useLinkDetail,
+  useRecordOpen,
+  useSetLinkFlag,
+} from '@/hooks';
 import { useTheme } from '@/providers/theme-provider';
-import { browserService } from '@/services';
+import { browserService, healthService, readabilityService } from '@/services';
 import { useSettingsStore } from '@/store';
+import type { LinkStatus } from '@/types';
+import { cn } from '@/utils/cn';
 import { formatDateTime, formatRelativeTime, pluralize } from '@/utils/format';
 import { getDomain } from '@/utils/url';
 import { haptics } from '@/utils/haptics';
@@ -50,9 +64,20 @@ function ToggleChip({
   return <Chip label={label} icon={Icon} selected={active} onPress={onPress} accessibilityLabel={label} />;
 }
 
+/** Copy for each health state. `unknown` deliberately avoids claiming the link is dead. */
+const HEALTH_COPY: Record<LinkStatus, { label: string; detail: string }> = {
+  ok: { label: 'Reachable', detail: 'This link resolved at the last check.' },
+  redirected: { label: 'Redirected', detail: 'This link now points somewhere else.' },
+  broken: { label: 'Broken', detail: "This link didn't resolve at the last check." },
+  unknown: {
+    label: "Couldn't verify",
+    detail: 'The check failed — the site may block automated requests, or you were offline.',
+  },
+};
+
 export default function LinkDetailScreen() {
   const router = useRouter();
-  const { name } = useTheme();
+  const { colors, name } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const linkId = Number(id);
 
@@ -60,6 +85,9 @@ export default function LinkDetailScreen() {
   const setFlag = useSetLinkFlag();
   const recordOpen = useRecordOpen();
   const actions = useLinkActions();
+  const checkLink = useCheckLink();
+  const archiveNow = useArchiveNow();
+  const highlightCount = useHighlightCount(linkId);
   const openInApp = useSettingsStore((s) => s.openInApp);
 
   const link = detail.data;
@@ -67,7 +95,8 @@ export default function LinkDetailScreen() {
   const open = (inApp: boolean) => {
     if (!link) return;
     recordOpen.mutate(link.id);
-    browserService.openLink(link.url, { inApp, theme: name });
+    // A dead link opens its archived snapshot instead of a 404, when one was found.
+    browserService.openLink(healthService.bestOpenUrl(link), { inApp, theme: name });
   };
 
   if (detail.isLoading) {
@@ -134,12 +163,88 @@ export default function LinkDetailScreen() {
           </View>
         </View>
 
-        <Button
-          title={openInApp ? 'Open link' : 'Open in browser'}
-          icon={ExternalLink}
-          size="lg"
-          onPress={() => open(openInApp)}
-        />
+        <View className="gap-2">
+          <Button
+            title={
+              link.status === 'broken' && link.archiveUrl
+                ? 'Open archived copy'
+                : openInApp
+                  ? 'Open link'
+                  : 'Open in browser'
+            }
+            icon={link.status === 'broken' && link.archiveUrl ? History : ExternalLink}
+            size="lg"
+            onPress={() => open(openInApp)}
+          />
+
+          {/* The reader is only worth offering once there's something stored to read. */}
+          {link.content ? (
+            <Button
+              title={
+                readabilityService.readingMinutes(link.wordCount)
+                  ? `Read offline · ${readabilityService.readingMinutes(link.wordCount)} min`
+                  : 'Read offline'
+              }
+              variant="secondary"
+              icon={BookOpenText}
+              onPress={() =>
+                router.push({ pathname: '/reader/[id]', params: { id: String(link.id) } })
+              }
+            />
+          ) : null}
+        </View>
+
+        {/* Health */}
+        {link.status ? (
+          <View
+            className={cn(
+              'gap-2 rounded-2xl border p-3',
+              link.status === 'broken'
+                ? 'border-destructive/40 bg-destructive/10'
+                : 'border-border bg-card',
+            )}
+          >
+            <View className="flex-row items-center gap-2">
+              {link.status === 'broken' ? (
+                <Unlink size={16} color={colors.destructive} />
+              ) : (
+                <ShieldCheck size={16} color={colors.mutedForeground} />
+              )}
+              <Text variant="label" className="flex-1">
+                {HEALTH_COPY[link.status].label}
+              </Text>
+              {link.checkedAt ? (
+                <Text variant="caption">{formatRelativeTime(link.checkedAt)}</Text>
+              ) : null}
+            </View>
+            <Text variant="caption">{HEALTH_COPY[link.status].detail}</Text>
+
+            <View className="flex-row flex-wrap gap-2 pt-1">
+              <Chip
+                label={checkLink.isPending ? 'Checking…' : 'Check now'}
+                icon={RefreshCw}
+                onPress={() => checkLink.mutate(linkId)}
+              />
+              <Chip
+                label={archiveNow.isPending ? 'Archiving…' : 'Save to archive'}
+                icon={History}
+                onPress={() => archiveNow.mutate(linkId)}
+              />
+              {link.archiveUrl ? (
+                <Chip
+                  label="Open snapshot"
+                  icon={History}
+                  onPress={() =>
+                    browserService.openLink(link.archiveUrl as string, {
+                      inApp: openInApp,
+                      theme: name,
+                    })
+                  }
+                />
+              ) : null}
+            </View>
+          </View>
+        ) : null}
 
         {/* Quick toggles */}
         <View className="flex-row flex-wrap gap-2">
@@ -256,6 +361,21 @@ export default function LinkDetailScreen() {
                 : 'Never'
             }
           />
+          {link.wordCount ? (
+            <>
+              <Divider />
+              <MetaRow
+                label="Article"
+                value={`${pluralize(link.wordCount, 'word')} · ${readabilityService.readingMinutes(link.wordCount)} min`}
+              />
+            </>
+          ) : null}
+          {highlightCount.data ? (
+            <>
+              <Divider />
+              <MetaRow label="Highlights" value={pluralize(highlightCount.data, 'passage')} />
+            </>
+          ) : null}
         </View>
       </ScrollView>
 
