@@ -3,7 +3,7 @@
     "name": "LinkVault",
     "slug": "LinkVault",
     "owner": "emon5122",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "linkvault",
@@ -85,8 +85,12 @@
       [
         "expo-share-intent",
         {
-          "androidIntentFilters": ["text/*"],
-          "androidMultiIntentFilters": ["text/*"]
+          "androidIntentFilters": [
+            "text/*"
+          ],
+          "androidMultiIntentFilters": [
+            "text/*"
+          ]
         }
       ]
     ],
