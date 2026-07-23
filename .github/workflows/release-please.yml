@@ -52,7 +52,7 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       # Expo's user-facing version lives in app.json and is not managed by EAS (only versionCode
       # is), so it has to follow package.json by hand.
