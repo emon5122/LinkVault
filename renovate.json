@@ -1,6 +1,88 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "packageRules": [
+    {
+      "description": [
+        "Expo pins the exact version of every native module for an SDK release (see",
+        "node_modules/expo/bundledNativeModules.json). Renovate bumping these independently produces",
+        "PRs that pass CI — jest never touches native code — while moving the app onto versions Expo",
+        "does not sanction, which `npx expo install --check` then reports as broken.",
+        "",
+        "These move only when the SDK moves: bump `expo` itself, then run `npx expo install --check`",
+        "and `npx expo install --fix` to take whatever the new SDK expects.",
+        "",
+        "`react-test-renderer` is here for the same reason by a different route: it must match the",
+        "`react` version exactly, and react is pinned by Expo."
+      ],
+      "matchPackageNames": [
+        "@expo/ui",
+        "@shopify/flash-list",
+        "expo",
+        "expo-camera",
+        "expo-clipboard",
+        "expo-constants",
+        "expo-dev-client",
+        "expo-device",
+        "expo-document-picker",
+        "expo-file-system",
+        "expo-font",
+        "expo-glass-effect",
+        "expo-haptics",
+        "expo-image",
+        "expo-linking",
+        "expo-notifications",
+        "expo-router",
+        "expo-secure-store",
+        "expo-share-intent",
+        "expo-sharing",
+        "expo-splash-screen",
+        "expo-sqlite",
+        "expo-status-bar",
+        "expo-symbols",
+        "expo-system-ui",
+        "expo-web-browser",
+        "react",
+        "react-dom",
+        "react-native",
+        "react-test-renderer",
+        "react-native-gesture-handler",
+        "react-native-qrcode-svg",
+        "react-native-reanimated",
+        "react-native-safe-area-context",
+        "react-native-screens",
+        "react-native-svg",
+        "react-native-web",
+        "react-native-worklets",
+        "babel-preset-expo",
+        "eslint-config-expo",
+        "jest-expo"
+      ],
+      "enabled": false
+    },
+    {
+      "description": [
+        "Major upgrades of the toolchain are migrations, not dependency bumps — TypeScript 7, ESLint",
+        "10, Tailwind 4, Jest 30 and Zod 4 each need code changes. Surface them on the dashboard and",
+        "let a human opt in, rather than opening PRs that sit red or, worse, green and wrong."
+      ],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Group the low-risk dev tooling into a single PR so the queue stays short.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dev tooling"
+    },
+    {
+      "description": [
+        "release-please and the Play publishing chain are load-bearing for shipping: a silent",
+        "behaviour change there stops releases without failing a build. Keep them opt-in."
+      ],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["googleapis/release-please-action", "expo/expo-github-action"],
+      "dependencyDashboardApproval": true
+    }
   ]
 }
