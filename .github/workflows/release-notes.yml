@@ -1,0 +1,77 @@
+name: Push Release Notes
+
+# Pushes Play's "What's new" text for the release currently on a track, without touching the binary
+# or the store listing.
+#
+# release.yml already does this at the end of a successful build, but only there — if the submit
+# step fails (a track precondition, a rejected upload) or the app was submitted out of band with
+# `eas submit`, that step never runs and the notes are silently left stale. This is the way back in.
+#
+# The text comes from fastlane/metadata/android/en-US/changelogs/default.txt. Tick `regenerate` to
+# rebuild it from CHANGELOG.md first — leave it off when the file has been written by hand, which is
+# usually the better choice, since commit subjects rarely read like release notes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Play track whose release should get the notes'
+        required: true
+        default: alpha
+        type: choice
+        options:
+          - alpha
+          - internal
+          - production
+      regenerate:
+        description: 'Rebuild the notes from CHANGELOG.md before pushing'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  push-notes:
+    name: Upload release notes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: ${{ inputs.regenerate }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Regenerate notes from CHANGELOG
+        if: ${{ inputs.regenerate }}
+        run: node scripts/play-notes.js
+
+      - name: Show what will be pushed
+        run: |
+          echo "Track: ${{ inputs.track }}"
+          echo "---"
+          cat fastlane/metadata/android/en-US/changelogs/default.txt
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+
+      - name: Write Google Play service account key
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY" > google-service-account.json
+
+      - name: Push release notes
+        env:
+          SUPPLY_JSON_KEY: google-service-account.json
+          SUPPLY_TRACK: ${{ inputs.track }}
+        run: fastlane android release_notes
+
+      - name: Clean up service account key
+        if: always()
+        run: rm -f google-service-account.json

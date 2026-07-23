@@ -1,7 +1,8 @@
-First release of LinkVault.
+Read offline, search inside your articles, and share folders.
 
-• Save links with automatic previews (title, description, image, favicon)
-• Organize with folders, tags, favorites, read later, and pins
-• Instant search with highlighted results
-• Markdown notes, import/export, and full local backup
-• Light, dark, and system themes — private and fully offline
+• Offline reader — article text saved to your device, with sentence highlights
+• Search now looks inside saved articles, not just titles and notes
+• Broken links are detected, with a Wayback Machine copy when one exists
+• Share a folder as a message, a file, or a QR code
+• Choose which browser opens your links
+• Fixed the tab bar overlapping Android's navigation bar

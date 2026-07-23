@@ -184,14 +184,34 @@ Markdown links, `**bold**`, and release-please's trailing `([abc1234](…))` ref
 result would exceed 500 characters, whole bullets are dropped from the end rather than cutting a
 sentence in half. Preview it any time with `pnpm changelog:play:check`.
 
-It runs in two places:
+> **The generator is only as good as your commit subjects.** It faithfully converts whatever is in
+> the changelog, so a release full of `feat: add babel-preset-expo dependency` produces release notes
+> full of exactly that. For anything a user will read, write `default.txt` by hand and skip the
+> regeneration — `feat:` subjects are written for the changelog, not for the store.
+
+It runs in three places:
 - **release-please.yml** regenerates the file (alongside `scripts/sync-app-version.js`) and commits
   both, so the repo always shows what Play will say.
 - **release.yml** pushes it to Play via `fastlane android release_notes`, *after* the submit —
   `supply` attaches notes to a release that already exists on the track, so running it earlier fails
-  with `Could not find release for version code ''`. That step is `continue-on-error` on purpose: if
-  Play hasn't surfaced the new release yet, the build has still shipped, and the notes can be
-  re-pushed with `fastlane android release_notes track:production`.
+  with `Could not find release for version code ''`.
+- **release-notes.yml** (Actions → *Push Release Notes* → pick a track) is the way back in when the
+  first two didn't happen. That covers more cases than it sounds: if the submit step fails, every
+  later step in `release.yml` is skipped, and a build submitted by hand with `eas submit` never runs
+  that workflow at all.
+
+### When a tagged release fails to submit
+
+Until the closed-testing gate is cleared, a pushed tag builds fine and then fails on
+`Updating track 'production'` with `Google Api Error: Invalid request - Precondition check failed`.
+The AAB is already built and signed — don't rebuild it. Take the build ID from the run log and
+submit it to a track you're allowed to use:
+
+```bash
+eas submit -p android --id <build-id> --profile closed
+```
+
+Then run **Push Release Notes** against that track, since `release.yml` never got that far.
 
 > One-time in Play Console: create the **Closed testing** track (the default is named *Alpha*, which
 > maps to `track: "alpha"` in `eas.json`) and attach your tester Google Group.
