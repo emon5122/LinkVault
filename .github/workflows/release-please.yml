@@ -52,7 +52,7 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       # No app.json version sync any more: app.config.js derives the version from package.json,
       # which release-please bumps inside the release PR. Syncing it here ran *after* the tag was
