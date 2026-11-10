@@ -4,11 +4,10 @@ name: CI
 # This is the quality gate that must pass before a release can be cut.
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,6 +15,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-please--')
     name: Typecheck · Lint · Test
     runs-on: ubuntu-latest
     steps:

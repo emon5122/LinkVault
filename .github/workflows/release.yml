@@ -38,7 +38,12 @@ on:
           - production
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
   build-and-submit:
+    needs: ci
     name: EAS build + submit
     runs-on: ubuntu-latest
     steps:
