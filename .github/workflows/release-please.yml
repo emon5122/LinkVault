@@ -6,14 +6,10 @@ name: release-please
 # changelog and version bump. Merging that PR cuts the release: it tags `vX.Y.Z`, publishes the
 # GitHub release, and writes CHANGELOG.md.
 #
-# That tag is what drives shipping — `release.yml` triggers on `v*` and runs the EAS build + Play
-# submit. This only works because `token` below is a PAT: GitHub deliberately does not start new
-# workflow runs from events created with the default GITHUB_TOKEN, so a tag pushed with it would
-# silently never reach release.yml.
-#
-# Required repository secret:
-#   RELEASE_PLEASE_TOKEN – a fine-grained PAT on this repo with Contents: read/write and
-#                          Pull requests: read/write. (A classic PAT with `repo` also works.)
+# Runs on the default GITHUB_TOKEN (no PAT to expire). GitHub does not start new workflow runs
+# from tag/release events created with GITHUB_TOKEN, so once a release is cut this job dispatches
+# release.yml (EAS build + Play submit, on the new tag) and fdroid-apk.yml explicitly:
+# workflow_dispatch is the one event GITHUB_TOKEN is allowed to trigger.
 #
 # Deliberately NOT using manifest mode (release-please-config.json + .release-please-manifest.json).
 # With a single package, the Merge plugin opens the release PR on a component-less branch while the
@@ -30,6 +26,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
   release-please:
@@ -39,14 +36,21 @@ jobs:
         id: release
         with:
           release-type: node
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ github.token }}
 
       # Everything below runs only on the push that actually cuts a release.
+      - name: Start release + F-Droid APK builds for the new tag
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          gh workflow run release.yml -R "$GITHUB_REPOSITORY" --ref "$TAG" -f track=closed
+          gh workflow run fdroid-apk.yml -R "$GITHUB_REPOSITORY" --ref "$TAG" -f tag="$TAG"
+
       - name: Checkout
         if: ${{ steps.release.outputs.release_created }}
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
       - name: Setup Node
         if: ${{ steps.release.outputs.release_created }}
