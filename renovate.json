@@ -1,12 +1,16 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":dependencyDashboard"],
+  "extends": [
+    "github>nexisltd/.github",
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
   "packageRules": [
     {
       "description": [
         "Expo pins the exact version of every native module for an SDK release (see",
         "node_modules/expo/bundledNativeModules.json). Renovate bumping these independently produces",
-        "PRs that pass CI — jest never touches native code — while moving the app onto versions Expo",
+        "PRs that pass CI \u2014 jest never touches native code \u2014 while moving the app onto versions Expo",
         "does not sanction, which `npx expo install --check` then reports as broken.",
         "",
         "These move only when the SDK moves: bump `expo` itself, then run `npx expo install --check`",
@@ -62,17 +66,24 @@
     },
     {
       "description": [
-        "Major upgrades of the toolchain are migrations, not dependency bumps — TypeScript 7, ESLint",
+        "Major upgrades of the toolchain are migrations, not dependency bumps \u2014 TypeScript 7, ESLint",
         "10, Tailwind 4, Jest 30 and Zod 4 each need code changes. Surface them on the dashboard and",
         "let a human opt in, rather than opening PRs that sit red or, worse, green and wrong."
       ],
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true
     },
     {
       "description": "Group the low-risk dev tooling into a single PR so the queue stays short.",
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "dev tooling"
     },
     {
@@ -80,8 +91,13 @@
         "release-please and the Play publishing chain are load-bearing for shipping: a silent",
         "behaviour change there stops releases without failing a build. Keep them opt-in."
       ],
-      "matchManagers": ["github-actions"],
-      "matchPackageNames": ["googleapis/release-please-action", "expo/expo-github-action"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "googleapis/release-please-action",
+        "expo/expo-github-action"
+      ],
       "dependencyDashboardApproval": true
     }
   ]
